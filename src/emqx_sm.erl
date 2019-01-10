@@ -64,7 +64,7 @@ start_link() ->
 open_session(SessAttrs = #{clean_start := true, client_id := ClientId, conn_pid := ConnPid}) ->
     CleanStart = fun(_) ->
                      ok = discard_session(ClientId, ConnPid),
-                     emqx_session_sup:start_session(SessAttrs)
+                     {ok, emqx_session:init(SessAttrs)}
                  end,
     emqx_sm_locker:trans(ClientId, CleanStart);
 

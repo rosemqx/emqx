@@ -125,14 +125,14 @@ do_dispatch(SubPid, Topic, Msg) ->
 %% return either 'ok' (when everything is fine) or 'error'
 dispatch_per_qos(SubPid, Topic, #message{qos = ?QOS_0} = Msg) ->
     %% For QoS 0 message, send it as regular dispatch
-    _ = erlang:send(SubPid, {dispatch, Topic, Msg}),
+    _ = erlang:send(SubPid, {deliver, Topic, Msg}),
     ok;
 dispatch_per_qos(SubPid, Topic, Msg) ->
     case ack_enabled() of
         true ->
             dispatch_with_ack(SubPid, Topic, Msg);
         false ->
-            _ = erlang:send(SubPid, {dispatch, Topic, Msg}),
+            _ = erlang:send(SubPid, {deliver, Topic, Msg}),
             ok
     end.
 
@@ -140,7 +140,7 @@ dispatch_with_ack(SubPid, Topic, Msg) ->
     %% For QoS 1/2 message, expect an ack
     Ref = erlang:monitor(process, SubPid),
     Sender = self(),
-    _ = erlang:send(SubPid, {dispatch, Topic, with_ack_ref(Msg, {Sender, Ref})}),
+    _ = erlang:send(SubPid, {deliver, Topic, with_ack_ref(Msg, {Sender, Ref})}),
     Timeout = case Msg#message.qos of
                   ?QOS_1 -> timer:seconds(?SHARED_SUB_QOS1_DISPATCH_TIMEOUT_SECONDS);
                   ?QOS_2 -> infinity

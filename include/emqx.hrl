@@ -47,7 +47,7 @@
 %% Message and Delivery
 %%--------------------------------------------------------------------
 
--record(session, {sid, pid}).
+%%-record(session, {sid, pid}).
 
 -record(subscription, {topic, subid, subopts}).
 

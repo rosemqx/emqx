@@ -17,6 +17,7 @@
 -behaviour(gen_statem).
 
 -include("emqx_mqtt.hrl").
+-include("logger.hrl").
 
 -export([start_link/0, start_link/1]).
 -export([request/5, request/6, request_async/7, receive_response/3]).
@@ -866,7 +867,7 @@ connected(cast, ?PUBACK_PACKET(PacketId, ReasonCode, Properties),
                                properties  => Properties}},
             {keep_state, State#state{inflight = emqx_inflight:delete(PacketId, Inflight)}};
         none ->
-            emqx_logger:warning("Unexpected PUBACK: ~p", [PacketId]),
+            ?WARN("Unexpected PUBACK: ~p", [PacketId]),
             {keep_state, State}
     end;
 
@@ -877,10 +878,10 @@ connected(cast, ?PUBREC_PACKET(PacketId), State = #state{inflight = Inflight}) -
                         Inflight1 = emqx_inflight:update(PacketId, {pubrel, PacketId, os:timestamp()}, Inflight),
                         State#state{inflight = Inflight1};
                     {value, {pubrel, _Ref, _Ts}} ->
-                        emqx_logger:warning("Duplicated PUBREC Packet: ~p", [PacketId]),
+                        ?WARN("Duplicated PUBREC Packet: ~p", [PacketId]),
                         State;
                     none ->
-                        emqx_logger:warning("Unexpected PUBREC Packet: ~p", [PacketId]),
+                        ?WARN("Unexpected PUBREC Packet: ~p", [PacketId]),
                         State
                 end);
 
@@ -895,7 +896,7 @@ connected(cast, ?PUBREL_PACKET(PacketId),
                  false -> {keep_state, NewState}
              end;
          error ->
-             emqx_logger:warning("Unexpected PUBREL: ~p", [PacketId]),
+             ?WARN("Unexpected PUBREL: ~p", [PacketId]),
              {keep_state, State}
      end;
 
@@ -908,7 +909,7 @@ connected(cast, ?PUBCOMP_PACKET(PacketId, ReasonCode, Properties),
                                properties  => Properties}},
             {keep_state, State#state{inflight = emqx_inflight:delete(PacketId, Inflight)}};
         none ->
-            emqx_logger:warning("Unexpected PUBCOMP Packet: ~p", [PacketId]),
+            ?WARN("Unexpected PUBCOMP Packet: ~p", [PacketId]),
             {keep_state, State}
      end;
 
@@ -999,7 +1000,7 @@ should_ping(Sock) ->
 
 handle_event(info, {TcpOrSsL, _Sock, Data}, _StateName, State)
     when TcpOrSsL =:= tcp; TcpOrSsL =:= ssl ->
-    emqx_logger:debug("RECV Data: ~p", [Data]),
+    ?DEBUG("RECV Data: ~p", [Data]),
     process_incoming(Data, [], run_sock(State));
 
 handle_event(info, {Error, _Sock, Reason}, _StateName, State)
@@ -1324,7 +1325,7 @@ run_sock(State = #state{socket = Sock}) ->
     emqx_client_sock:setopts(Sock, [{active, once}]), State.
 
 %%------------------------------------------------------------------------------
-%% Process incomming
+%% Process incoming data
 
 process_incoming(<<>>, Packets, State) ->
     {keep_state, State, next_events(Packets)};

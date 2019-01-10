@@ -12,7 +12,7 @@
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
 
--module(emqx_ws_connection).
+-module(emqx_ws_channel).
 
 -include("emqx.hrl").
 -include("emqx_mqtt.hrl").
@@ -37,7 +37,7 @@
           sockname,
           idle_timeout,
           proto_state,
-          parser_state,
+          parse_state,
           keepalive,
           enable_stats,
           stats_timer,
@@ -128,7 +128,7 @@ websocket_init(#state{request = Req, options = Options}) ->
                                       sockname => Sockname,
                                       peercert => Peercert,
                                       sendfun  => send_fun(self())}, Options),
-    ParserState = emqx_protocol:parser(ProtoState),
+    ParseState = emqx_protocol:parser(ProtoState),
     Zone = proplists:get_value(zone, Options),
     EnableStats = emqx_zone:get_env(Zone, enable_stats, true),
     IdleTimout = emqx_zone:get_env(Zone, idle_timeout, 30000),
@@ -136,7 +136,7 @@ websocket_init(#state{request = Req, options = Options}) ->
     emqx_logger:set_metadata_peername(esockd_net:format(Peername)),
     {ok, #state{peername     = Peername,
                 sockname     = Sockname,
-                parser_state = ParserState,
+                parse_state  = ParseState,
                 proto_state  = ProtoState,
                 enable_stats = EnableStats,
                 idle_timeout = IdleTimout}}.
@@ -159,15 +159,15 @@ websocket_handle({binary, <<>>}, State) ->
     {ok, ensure_stats_timer(State)};
 websocket_handle({binary, [<<>>]}, State) ->
     {ok, ensure_stats_timer(State)};
-websocket_handle({binary, Data}, State = #state{parser_state = ParserState,
-                                                proto_state  = ProtoState}) ->
+websocket_handle({binary, Data}, State = #state{parse_state = ParseState,
+                                                proto_state = ProtoState}) ->
     ?LOG(debug, "RECV ~p", [Data]),
     BinSize = iolist_size(Data),
     emqx_pd:update_counter(recv_oct, BinSize),
     emqx_metrics:trans(inc, 'bytes/received', BinSize),
-    try emqx_frame:parse(iolist_to_binary(Data), ParserState) of
-        {more, ParserState1} ->
-            {ok, State#state{parser_state = ParserState1}};
+    try emqx_frame:parse(iolist_to_binary(Data), ParseState) of
+        {more, ParseState1} ->
+            {ok, State#state{parse_state = ParseState1}};
         {ok, Packet, Rest} ->
             emqx_metrics:received(Packet),
             emqx_pd:update_counter(recv_cnt, 1),
@@ -175,7 +175,7 @@ websocket_handle({binary, Data}, State = #state{parser_state = ParserState,
                 {ok, ProtoState1} ->
                     websocket_handle({binary, Rest}, reset_parser(State#state{proto_state = ProtoState1}));
                 {error, Error} ->
-                    ?LOG(error, "Protocol error - ~p", [Error]),
+                    ?ERROR("Protocol error - ~p", [Error]),
                     shutdown(Error, State);
                 {error, Reason, ProtoState1} ->
                     shutdown(Reason, State#state{proto_state = ProtoState1});
@@ -183,11 +183,11 @@ websocket_handle({binary, Data}, State = #state{parser_state = ParserState,
                     shutdown(Error, State#state{proto_state = ProtoState1})
             end;
         {error, Error} ->
-            ?LOG(error, "Frame error: ~p", [Error]),
+            ?ERROR("Frame error: ~p", [Error]),
             shutdown(Error, State)
     catch
         _:Error ->
-            ?LOG(error, "Frame error:~p~nFrame data: ~p", [Error, Data]),
+            ?ERROR("Frame error:~p~nFrame data: ~p", [Error, Data]),
             shutdown(parse_error, State)
     end.
 
@@ -211,8 +211,8 @@ websocket_info({call, From, session}, State = #state{proto_state = ProtoState}) 
     gen_server:reply(From, emqx_protocol:session(ProtoState)),
     {ok, State};
 
-websocket_info({deliver, PubOrAck}, State = #state{proto_state = ProtoState}) ->
-    case emqx_protocol:deliver(PubOrAck, ProtoState) of
+websocket_info({deliver, Topic, Msg}, State = #state{proto_state = ProtoState}) ->
+    case emqx_protocol:deliver({publish, Topic, Msg}, ProtoState) of
         {ok, ProtoState1} ->
             {ok, ensure_stats_timer(State#state{proto_state = ProtoState1})};
         {error, Reason} ->
@@ -226,12 +226,12 @@ websocket_info({timeout, Timer, emit_stats},
     {ok, State#state{stats_timer = undefined}, hibernate};
 
 websocket_info({keepalive, start, Interval}, State) ->
-    ?LOG(debug, "Keepalive at the interval of ~p", [Interval]),
+    ?DEBUG("Keepalive at the interval of ~p", [Interval]),
     case emqx_keepalive:start(stat_fun(), Interval, {keepalive, check}) of
         {ok, KeepAlive} ->
             {ok, State#state{keepalive = KeepAlive}};
         {error, Error} ->
-            ?LOG(warning, "Keepalive error - ~p", [Error]),
+            ?WARN("Keepalive error - ~p", [Error]),
             shutdown(Error, State)
     end;
 
@@ -240,19 +240,19 @@ websocket_info({keepalive, check}, State = #state{keepalive = KeepAlive}) ->
         {ok, KeepAlive1} ->
             {ok, State#state{keepalive = KeepAlive1}};
         {error, timeout} ->
-            ?LOG(debug, "Keepalive Timeout!", []),
+            ?DEBUG("Keepalive Timeout!", []),
             shutdown(keepalive_timeout, State);
         {error, Error} ->
-            ?LOG(warning, "Keepalive error - ~p", [Error]),
+            ?WARN("Keepalive error - ~p", [Error]),
             shutdown(keepalive_error, State)
     end;
 
 websocket_info({shutdown, discard, {ClientId, ByPid}}, State) ->
-    ?LOG(warning, "discarded by ~s:~p", [ClientId, ByPid]),
+    ?WARN("discarded by ~s:~p", [ClientId, ByPid]),
     shutdown(discard, State);
 
 websocket_info({shutdown, conflict, {ClientId, NewPid}}, State) ->
-    ?LOG(warning, "clientid '~s' conflict with ~p", [ClientId, NewPid]),
+    ?WARN("clientid '~s' conflict with ~p", [ClientId, NewPid]),
     shutdown(conflict, State);
 
 websocket_info({binary, Data}, State) ->
@@ -262,15 +262,14 @@ websocket_info({shutdown, Reason}, State) ->
     shutdown(Reason, State);
 
 websocket_info(Info, State) ->
-    ?LOG(error, "unexpected info: ~p", [Info]),
+    ?ERROR("unexpected info: ~p", [Info]),
     {ok, State}.
 
-terminate(SockError, _Req, #state{keepalive   = Keepalive,
+terminate(SockError, _Req, #state{keepalive = Keepalive,
                                   proto_state = ProtoState,
-                                  shutdown    = Shutdown}) ->
+                                  shutdown = Shutdown}) ->
 
-    ?LOG(debug, "Terminated for ~p, sockerror: ~p",
-           [Shutdown, SockError]),
+    ?DEBUG("Terminated for ~p, sockerror: ~p", [Shutdown, SockError]),
     emqx_keepalive:cancel(Keepalive),
     case {ProtoState, Shutdown} of
         {undefined, _} -> ok;
@@ -285,7 +284,7 @@ terminate(SockError, _Req, #state{keepalive   = Keepalive,
 %%------------------------------------------------------------------------------
 
 reset_parser(State = #state{proto_state = ProtoState}) ->
-    State#state{parser_state = emqx_protocol:parser(ProtoState)}.
+    State#state{parse_state = emqx_protocol:parser(ProtoState)}.
 
 ensure_stats_timer(State = #state{enable_stats = true,
                                   stats_timer  = undefined,

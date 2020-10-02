@@ -77,17 +77,33 @@ npid() ->
       NodeD16, NodeD17, NodeD18, NodeD19, NodeD20>> =
       crypto:hash(sha, erlang:list_to_binary(erlang:atom_to_list(node()))),
 
-    % later, when the pid format changes, handle the different format
     ExternalTermFormatVersion = 131,
     PidExtType = 103,
-    <<ExternalTermFormatVersion:8,
-      PidExtType:8,
-      PidBin/binary>> = erlang:term_to_binary(self()),
-    % 72 bits for the Erlang pid
-    <<PidID1:8, PidID2:8, PidID3:8, PidID4:8, % ID (Node specific, 15 bits)
-      PidSR1:8, PidSR2:8, PidSR3:8, PidSR4:8, % Serial (extra uniqueness)
-      PidCR1:8                       % Node Creation Count
-      >> = binary:part(PidBin, erlang:byte_size(PidBin), -9),
+    NewPidExtType = 88,
+
+    % reduce the Erlang pid to 32 bits
+    {PidCR, PidByte1, PidByte2, PidByte3, PidByte4} = case erlang:term_to_binary(self()) of 
+        <<ExternalTermFormatVersion:8, PidExtType:8, PidBin/binary>> ->
+            <<PidID1:8,PidID2:8,PidID3:8,PidID4:8,% ID (Node specific, 15 bits)
+              PidSR1:8,PidSR2:8,PidSR3:8,PidSR4:8,% Serial (extra uniqueness)
+              PidCR1:8                            % Node Creation Count
+              >> = binary:part(PidBin, erlang:byte_size(PidBin), -9),              
+            {PidCR1,
+             PidID1 bxor PidSR4,
+             PidID2 bxor PidSR3,
+             PidID3 bxor PidSR2,
+             PidID4 bxor PidSR1};
+        <<ExternalTermFormatVersion:8, NewPidExtType:8, PidBin/binary>> ->
+            <<PidID1:8, PidID2:8, PidID3:8, PidID4:8, % ID (Node specific, 15 bits)
+            PidSR1:8, PidSR2:8, PidSR3:8, PidSR4:8, % Serial (extra uniqueness)
+            PidCR1:32                       % Node Creation Count
+            >> = binary:part(PidBin, erlang:byte_size(PidBin), -12),
+            {PidCR1,
+             PidID1 bxor PidSR4,
+             PidID2 bxor PidSR3,
+             PidID3 bxor PidSR2,
+             PidID4 bxor PidSR1}
+    end,
 
     % reduce the 160 bit NodeData checksum to 16 bits
     NodeByte1 = ((((((((NodeD01 bxor NodeD02)
@@ -108,13 +124,7 @@ npid() ->
                    bxor NodeD18)
                   bxor NodeD19)
                  bxor NodeD20)
-                bxor PidCR1,
-
-    % reduce the Erlang pid to 32 bits
-    PidByte1 = PidID1 bxor PidSR4,
-    PidByte2 = PidID2 bxor PidSR3,
-    PidByte3 = PidID3 bxor PidSR2,
-    PidByte4 = PidID4 bxor PidSR1,
+                bxor PidCR,
 
     <<NPid:48>> = <<NodeByte1:8, NodeByte2:8,
                     PidByte1:8, PidByte2:8,

@@ -61,7 +61,8 @@
                        message_queue_len,
                        current_function]).
 
--define(PROCESS_INFO, [initial_call,
+-define(PROCESS_INFO_KEYS, [
+                       initial_call,
                        current_function,
                        registered_name,
                        status,
@@ -78,14 +79,16 @@
                        sequential_trace_token,
                        error_handler]).
 
--define(PROCESS_GC, [memory,
+-define(PROCESS_GC_KEYS, [
+                     memory,
                      total_heap_size,
                      heap_size,
                      stack_size,
                      min_heap_size]).
                      %fullsweep_after]).
 
--define(SYSTEM_INFO, [allocated_areas,
+-define(SYSTEM_INFO_KEYS, [
+                      allocated_areas,
                       allocator,
                       alloc_util_allocators,
                       build_type,

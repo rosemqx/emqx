@@ -26,16 +26,6 @@
          get_ets_object/0, get_ets_object/1]).
 -export([get_port_types/0, get_port_info/0, get_port_info/1]).
 
--define(UTIL_ALLOCATORS, [temp_alloc,
-                          eheap_alloc,
-                          binary_alloc,
-                          ets_alloc,
-                          driver_alloc,
-                          sl_alloc,
-                          ll_alloc,
-                          fix_alloc,
-                          std_alloc]).
-
 -define(PROCESS_LIST, [initial_call,
                        reductions,
                        memory,
@@ -192,7 +182,16 @@ convert_allocated_areas({Key, Value}) ->
     {Key, Value}.
 
 mem_info() ->
-    Dataset = memsup:get_system_memory_data(),
+    Dataset = case os:type() of {unix, darwin} ->
+        % quick stub for macos
+        [ {total_memory, os:cmd("sysctl -n hw.memsize")}
+        , {free_memory, 0} % need free memory util with consistent results
+        %, {system_total_memory,}
+        %, {largest_free,}
+        %, {number_of_free,}
+        ];
+        _ -> memsup:get_system_memory_data()
+    end,
     [{total_memory, proplists:get_value(total_memory, Dataset)},
      {used_memory, proplists:get_value(total_memory, Dataset) - proplists:get_value(free_memory, Dataset)}].
 
@@ -217,60 +216,18 @@ scheduler_usage_diff(First, Last) ->
               end, lists:zip(lists:sort(First), lists:sort(Last))).
 
 get_memory()->
-    [{Key, get_memory(Key, current)} || Key <- [used, allocated, unused, usage]] ++ erlang:memory().
+    [{Key, get_memory(Key)} || Key <- [used, allocated, unused, usage]] ++ erlang:memory().
 
-get_memory(used, Keyword) ->
-    lists:sum(lists:map(fun({_, Prop}) ->
-                    container_size(Prop, Keyword, blocks_size)
-            end, util_alloc()));
-get_memory(allocated, Keyword) ->
-    lists:sum(lists:map(fun({_, Prop})->
-                    container_size(Prop, Keyword, carriers_size)
-            end, util_alloc()));
-get_memory(unused, Keyword) ->
-    get_memory(allocated, Keyword) - get_memory(used, Keyword);
-get_memory(usage, Keyword) ->
-    get_memory(used, Keyword) / get_memory(allocated, Keyword).
-
-util_alloc()->
-    alloc(?UTIL_ALLOCATORS).
-
-alloc()->
-    {_Mem, Allocs} = snapshot_int(),
-    Allocs.
-alloc(Type) ->
-    [{{T, Instance}, Props} || {{T, Instance}, Props} <- alloc(), lists:member(T, Type)].
-
-snapshot_int() ->
-    {erlang:memory(), allocators()}.
-
-allocators() ->
-    UtilAllocators = erlang:system_info(alloc_util_allocators),
-    Allocators = [sys_alloc, mseg_alloc|UtilAllocators],
-    [{{A, N},lists:sort(proplists:delete(versions, Props))} ||
-        A <- Allocators, Allocs <- [erlang:system_info({allocator, A})],
-            Allocs =/= false, {_, N, Props} <- Allocs].
-
-container_size(Prop, Keyword, Container) ->
-    Sbcs = container_value(Prop, Keyword, sbcs, Container),
-    Mbcs = container_value(Prop, Keyword, mbcs, Container),
-    Sbcs+Mbcs.
-
-container_value(Prop, Keyword, Type, Container) when is_atom(Keyword)->
-    container_value(Prop, 2, Type, Container);
-container_value(Props, Pos, mbcs = Type, Container) when is_integer(Pos)->
-    Pool = case proplists:get_value(mbcs_pool, Props) of
-        PoolProps when PoolProps =/= undefined ->
-            element(Pos, lists:keyfind(Container, 1, PoolProps));
-        _ ->
-            0
-       end,
-    TypeProps = proplists:get_value(Type, Props),
-    Pool + element(Pos, lists:keyfind(Container, 1, TypeProps));
-
-container_value(Props, Pos, Type, Container) ->
-    TypeProps = proplists:get_value(Type, Props),
-    element(Pos, lists:keyfind(Container, 1, TypeProps)).
+% very quick replacement of system_info() with instruments.
+get_memory(used) ->
+    lists:foldl(fun({_Type,_InPool,_Total,_Unscanned,Alls,_Free}, AccIn0) ->
+        AccIn0 + lists:foldl(fun({_,_Count,Size},AccIn1) -> Size+AccIn1 end, 0, Alls) end,
+        0, case instrument:carriers() of  {ok, {_, Crs}} -> Crs; {error,_} -> [] end);
+get_memory(allocated) ->
+    lists:foldl(fun({_Type,_InPool,Total,_Unscanned,_Alls,_Free}, AccIn0) -> AccIn0 + Total end,
+        0, case instrument:carriers() of  {ok, {_S, C1}} -> C1; {error,_} -> [] end);
+get_memory(unused) -> get_memory(allocated) - get_memory(used);
+get_memory(usage) -> get_memory(used) / get_memory(allocated).
 
 get_process_list()->
     [get_process_list(Pid) || Pid <- processes()].

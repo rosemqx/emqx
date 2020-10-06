@@ -39,13 +39,16 @@ start(_Type, _Args) ->
       andalso (ok = emqx_listeners:start()),
     start_autocluster(),
     register(emqx, self()),
-    emqx_alarm_handler:load(),
+    %case emqx_alarm_handler:load() of 
+    %    ok -> io:format("swapped handler ~n");
+    %    {error,Error} -> io:format("alarm handler ~p~n", [Error])
+    %end,
     print_vsn(),
     {ok, Sup}.
 
 -spec(stop(State :: term()) -> term()).
 stop(_State) ->
-    emqx_alarm_handler:unload(),
+    %emqx_alarm_handler:unload(),
     emqx_boot:is_enabled(listeners)
       andalso emqx_listeners:stop(),
     emqx_modules:unload().

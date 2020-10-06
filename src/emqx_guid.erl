@@ -87,7 +87,7 @@ npid() ->
             <<PidID1:8,PidID2:8,PidID3:8,PidID4:8,% ID (Node specific, 15 bits)
               PidSR1:8,PidSR2:8,PidSR3:8,PidSR4:8,% Serial (extra uniqueness)
               PidCR1:8                            % Node Creation Count
-              >> = binary:part(PidBin, erlang:byte_size(PidBin), -9),              
+              >> = binary:part(PidBin, erlang:byte_size(PidBin), -9),
             {PidCR1,
              PidID1 bxor PidSR4,
              PidID2 bxor PidSR3,

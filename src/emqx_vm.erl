@@ -221,10 +221,13 @@ get_memory()->
 % very quick replacement of system_info() with instruments.
 get_memory(used) ->
     lists:foldl(fun({_Type,_InPool,_Total,_Unscanned,Alls,_Free}, AccIn0) ->
-        AccIn0 + lists:foldl(fun({_,_Count,Size},AccIn1) -> Size+AccIn1 end, 0, Alls) end,
-        0, case instrument:carriers() of  {ok, {_, Crs}} -> Crs; {error,_} -> [] end);
+                         AccIn0 + lists:foldl(fun({_,_Count,Size},AccIn1) -> Size+AccIn1;
+                   ({_Type,Total,_,_Unscanned,Alls,_InPool,_Free}, AccIn0) ->
+                         AccIn0 + Total
+    end, 0, Alls) end, 0, case instrument:carriers() of  {ok, {_, Crs}} -> Crs; {error,_} -> [] end);
 get_memory(allocated) ->
-    lists:foldl(fun({_Type,_InPool,Total,_Unscanned,_Alls,_Free}, AccIn0) -> AccIn0 + Total end,
+    lists:foldl(fun({_Type,_InPool,Total,_Unscanned,_Alls,_Free}, AccIn0) -> AccIn0 + Total;
+                   ({_Type,Total,_,_Unscanned,Alls,_InPool,_Free}, AccIn0) -> AccIn0 + Total end,
         0, case instrument:carriers() of  {ok, {_S, C1}} -> C1; {error,_} -> [] end);
 get_memory(unused) -> get_memory(allocated) - get_memory(used);
 get_memory(usage) -> get_memory(used) / get_memory(allocated).

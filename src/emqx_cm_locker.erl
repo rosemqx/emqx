@@ -36,16 +36,17 @@ start_link() ->
 trans(ClientId, Fun) ->
     trans(ClientId, Fun, undefined).
 
--spec(trans(maybe(emqx_types:clientid()),
-            fun(([node() | {node(), any()}])-> any()), ekka_locker:piggyback()) -> any()).
+-spec trans(
+        emqx_types:clientid(),
+        fun((ekka_locker:lock_result())-> any()), 
+        ekka_locker:piggyback()) -> any().
 trans(undefined, Fun, _Piggyback) ->
     Fun([]);
 trans(ClientId, Fun, Piggyback) ->
     case lock(ClientId, Piggyback) of
         {true, Nodes} ->
             try Fun(Nodes) after unlock(ClientId) end;
-        {false, _} ->
-            {error, client_id_unavailable}
+        {false, _} -> {error, client_id_unavailable}
     end.
 
 -spec(lock(emqx_types:clientid()) -> ekka_locker:lock_result()).

@@ -51,7 +51,7 @@
 
 -spec(encode(json_term()) -> json_text()).
 encode(Term) ->
-    encode(Term, [force_utf8]).
+    encode(Term, [native_utf8]).
 
 -spec(encode(json_term(), encode_options()) -> json_text()).
 encode(Term, Opts) ->
@@ -115,6 +115,7 @@ from_ejson({L}) ->
     [{Name, from_ejson(Value)} || {Name, Value} <- L];
 from_ejson(T) -> T.
 
+-dialyzer([{nowarn_function, to_binary/1}]).
 to_binary(B) when is_binary(B) -> B;
 to_binary(L) when is_list(L) ->
     iolist_to_binary(L).

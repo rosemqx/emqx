@@ -159,9 +159,10 @@
 -record(banned, {
           who    :: {clientid,  binary()}
                   | {username,   binary()}
-                  | {ip_address, inet:ip_address()},
+                  | {ip_address, inet:ip_address()}
+                  | undefined,
           by     :: binary(),
-          reason :: binary(),
+          reason :: undefined | binary(),
           at     :: integer(),
           until  :: integer()
         }).

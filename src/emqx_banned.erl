@@ -77,7 +77,7 @@ stop() -> gen_server:stop(?MODULE).
 check(ClientInfo) ->
     do_check({clientid, maps:get(clientid, ClientInfo, undefined)})
         orelse do_check({username, maps:get(username, ClientInfo, undefined)})
-            orelse do_check({peerhost, maps:get(peerhost, ClientInfo, undefined)}).
+            orelse do_check({ip_address, maps:get(ip_address, ClientInfo, undefined)}).
 
 do_check({_, undefined}) ->
     false;
@@ -104,7 +104,7 @@ create(Banned) when is_record(Banned, banned) ->
 
 -spec(delete({clientid, emqx_types:clientid()}
            | {username, emqx_types:username()}
-           | {peerhost, emqx_types:peerhost()}) -> ok).
+           | {ip_address, emqx_types:peerhost()}) -> ok).
 delete(Who) ->
     mnesia:dirty_delete(?BANNED_TAB, Who).
 

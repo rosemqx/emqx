@@ -82,7 +82,7 @@ prop_object_proplist_to_map() ->
 prop_object_map_to_proplist() ->
     ?FORALL(T0, json_object_map(),
            begin
-               %% jiffy encode a map with descending order, that is,
+               %% encode a map with descending order, that is,
                %% it is opposite with maps traversal sequence
                %% see: the `to_list` implementation
                T = to_list(T0),

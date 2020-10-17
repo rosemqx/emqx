@@ -3,7 +3,7 @@
               {vsn,"git"},
               {modules,[]},
               {registered,[emqx_sup]},
-              {applications,[kernel,stdlib,jsone,gproc,gen_rpc,esockd,cowboy,replayq,cuttlefish,neotoma,ekka,getopt,ssl_verify_fun,lager]},
+              {applications,[kernel,stdlib,jsone,gproc,gen_rpc,esockd,cowboy,replayq,cuttlefish,neotoma,ekka,getopt,ssl_verify_fun,lager,emqx_ct_helpers]},
               {env,[]},
               {mod,{emqx_app,[]}},
               {maintainers,["Feng Lee <feng@emqx.io>"]},

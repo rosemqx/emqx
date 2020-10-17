@@ -213,7 +213,7 @@ convert_allocated_areas({Key, Value}) ->
 mem_info() ->
     Dataset = case os:type() of {unix, darwin} ->
         % quick stub for macos
-        [ {total_memory, os:cmd("sysctl -n hw.memsize")}
+        [ {total_memory, list_to_integer(hd(string:lexemes(os:cmd("sysctl -n hw.memsize"), [$\n,$\r]))) }
         , {free_memory, 0} % need free memory util with consistent results
         %, {system_total_memory,}
         %, {largest_free,}

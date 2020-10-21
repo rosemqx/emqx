@@ -20,7 +20,9 @@
 -compile(nowarn_export_all).
 
 -include_lib("eunit/include/eunit.hrl").
--include_lib("emqx_ct_helpers/include/emqx_ct.hrl").
+-define(catch_error(Error, Exp),
+        try (Exp) catch error:Error -> ok end).
+
 
 all() -> emqx_ct:all(?MODULE).
     

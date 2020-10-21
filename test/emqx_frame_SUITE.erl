@@ -22,7 +22,8 @@
 -include("emqx_mqtt.hrl").
 -include_lib("eunit/include/eunit.hrl").
 -include_lib("common_test/include/ct.hrl").
--include_lib("emqx_ct_helpers/include/emqx_ct.hrl").
+-define(catch_error(Error, Exp),
+        try (Exp) catch error:Error -> ok end).
 
 all() ->
     [{group, parse},

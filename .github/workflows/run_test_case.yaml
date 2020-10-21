@@ -16,4 +16,4 @@ jobs:
         - name: Code dialyzer
           run: rebar3 dialyzer
         - name: Run tests
-          run: rebar3 do eunit, ct
+          run: rebar3 do eunit

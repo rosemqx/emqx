@@ -1,1 +1,1 @@
-[kernel,stdlib,inets,mnesia,sasl,asn1,syntax_tools,tools,compiler,crypto,cuttlefish,getopt,gproc,jsone,replayq,cowlib,goldrush,public_key,ekka,ssl,lager,ranch,esockd,gen_rpc,ssl_verify_fun,cowboy,kvs,emqx]
+[kernel,stdlib,inets,mnesia,sasl,asn1,crypto,gproc,jsone,replayq,cowlib,public_key,ekka,ssl,ranch,esockd,gen_rpc,ssl_verify_fun,cowboy,kvs,emqx]

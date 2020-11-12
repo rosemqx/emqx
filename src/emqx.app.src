@@ -5,4 +5,4 @@
     {registered,[]},
     {applications,[kernel,stdlib,jsone,gproc,gen_rpc,esockd,cowboy,replayq,ekka,ssl_verify_fun]},
     {env,[]},
-    {mod,{emqx,[]}} ]}.
+    {mod,{emqx_app,[]}} ]}.

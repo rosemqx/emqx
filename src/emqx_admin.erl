@@ -221,8 +221,8 @@ salt() ->
     Salt = rand:uniform(16#ffffffff),
     <<Salt:32>>.
 
-add_default_user(undefined, _) -> ignore;
-add_default_user(_, undefined) -> ignore;
+add_default_user(<<>>, _) -> ignore;
+add_default_user(_, <<>>) -> ignore;
 add_default_user(Username, Password) ->
     case lookup_user(Username) of
         [] -> add_user(Username, Password, <<"administrator">>);

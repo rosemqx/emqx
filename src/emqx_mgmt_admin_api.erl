@@ -18,7 +18,7 @@
 
 -include("emqx.hrl").
 
--import(minirest, [return/0, return/1]).
+-import(minirest, [return/1]).
 
 -rest_api(#{name   => auth_user,
             method => 'POST',
@@ -72,7 +72,6 @@
 
 -define(EMPTY(V), (V == undefined orelse V == <<>>)).
 
-auth(_Bindings, Params) when is_map(Params) -> auth(_Bindings, maps:to_list(Params));
 auth(_Bindings, Params) ->
     Username = maps:get(<<"username">>, Params),
     Password = maps:get(<<"password">>, Params),

@@ -19,6 +19,7 @@
 -behaviour(gen_server).
 
 -include("logger.hrl").
+-include("emqx.hrl").
 -include("types.hrl").
 
 -logger_header("[Broker Helper]").

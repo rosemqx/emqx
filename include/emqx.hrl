@@ -169,5 +169,7 @@
 
 -record(mqtt_admin, {username, password, tags}).
 
+-type(mqtt_admin() :: #mqtt_admin{}).
+
 -endif.
 

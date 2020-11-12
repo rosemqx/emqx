@@ -16,6 +16,8 @@
 
 -module(emqx_mgmt_auth).
 
+-include("types.hrl").
+
 %% Mnesia Bootstrap
 -export([mnesia/1]).
 -boot_mnesia({mnesia, [boot]}).
@@ -78,12 +80,11 @@ add_app(AppId, Name) when is_binary(AppId) ->
     add_app(AppId, Name, <<"Application user">>, true, undefined).
 
 -spec(add_app(appid(), binary(), binary(), boolean(), integer() | undefined)
-      -> {ok, appsecret()}
-       | {error, term()}).
+      -> {ok, appsecret()} | {error, term()}).
 add_app(AppId, Name, Desc, Status, Expired) when is_binary(AppId) ->
     add_app(AppId, Name, undefined, Desc, Status, Expired).
 
--spec(add_app(appid(), binary(), binary(), binary(), boolean(), integer() | undefined)
+-spec(add_app(appid(), binary(), maybe(binary()), binary(), boolean(), integer() | undefined)
       -> {ok, appsecret()}
        | {error, term()}).
 add_app(AppId, Name, Secret, Desc, Status, Expired) when is_binary(AppId) ->
@@ -136,7 +137,7 @@ get_appsecret(AppId) when is_binary(AppId) ->
         [] -> undefined
     end.
 
--spec(lookup_app(appid()) -> {{appid(), appsecret(), binary(), binary(), boolean(), integer() | undefined} | undefined}).
+-spec(lookup_app(appid()) -> {appid(), appsecret(), binary(), binary(), boolean(), maybe(integer())} | undefined).
 lookup_app(AppId) when is_binary(AppId) ->
     case mnesia:dirty_read(mqtt_app, AppId) of
         [#mqtt_app{id = AppId,
@@ -182,7 +183,7 @@ del_app(AppId) when is_binary(AppId) ->
         {aborted, Reason} -> {error, Reason}
     end.
 
--spec(list_apps() -> [{appid(), appsecret(), binary(), binary(), boolean(), integer() | undefined}]).
+-spec(list_apps() -> [{appid(), appsecret(), maybe(binary()), binary(), boolean(), maybe(integer())} | undefined]).
 list_apps() ->
     [ {AppId, AppSecret, Name, Desc, Status, Expired} || #mqtt_app{id = AppId,
                                                                    secret = AppSecret,
@@ -203,6 +204,7 @@ is_authorized(AppId, AppSecret) ->
             false
     end.
 
+-spec(is_expired(any()) -> boolean()).
 is_expired(undefined) -> true;
-is_expired(Expired)   -> Expired >= erlang:system_time(second).
+is_expired(Expired) when is_integer(Expired)  -> Expired >= erlang:system_time(second).
 

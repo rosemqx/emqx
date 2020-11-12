@@ -18,6 +18,7 @@
 
 -compile(inline).
 
+-include("emqx.hrl").
 -include("types.hrl").
 -include("logger.hrl").
 

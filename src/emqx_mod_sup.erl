@@ -18,6 +18,7 @@
 
 -behaviour(supervisor).
 
+-include("emqx.hrl").
 -include("types.hrl").
 
 -export([ start_link/0

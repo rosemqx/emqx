@@ -26,6 +26,7 @@
 
 -module(emqx_gc).
 
+-include("emqx.hrl").
 -include("types.hrl").
 
 -export([ init/1

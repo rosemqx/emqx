@@ -18,6 +18,7 @@
 
 -behaviour(gen_server).
 
+-include("emqx.hrl").
 -include("types.hrl").
 -include("logger.hrl").
 

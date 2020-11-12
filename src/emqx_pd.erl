@@ -17,6 +17,8 @@
 %% @doc The utility functions for erlang process dictionary.
 -module(emqx_pd).
 
+
+-include("emqx.hrl").
 -include("types.hrl").
 
 -export([ get_counters/1

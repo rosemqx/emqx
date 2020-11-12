@@ -18,6 +18,7 @@
 
 -behaviour(supervisor).
 
+-include("emqx.hrl").
 -include("types.hrl").
 
 -export([spec/1, spec/2]).

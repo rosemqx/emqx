@@ -59,18 +59,11 @@ encode(Term, Opts) ->
 
 -spec(safe_encode(json_term())
       -> {ok, json_text()} | {error, Reason :: term()}).
-safe_encode(Term) ->
-    safe_encode(Term, []).
+safe_encode(Term) -> jsone:try_encode(Term).
 
 -spec(safe_encode(json_term(), encode_options())
       -> {ok, json_text()} | {error, Reason :: term()}).
-safe_encode(Term, Opts) ->
-    try encode(Term, Opts) of
-        Json -> {ok, Json}
-    catch
-        error:Reason ->
-            {error, Reason}
-    end.
+safe_encode(Term, Opts) -> jsone:try_encode(Term, Opts).
 
 -spec(decode(json_text()) -> json_term()).
 decode(Json) -> decode(Json, []).
@@ -81,18 +74,11 @@ decode(Json, Opts) ->
 
 -spec(safe_decode(json_text())
       -> {ok, json_term()} | {error, Reason :: term()}).
-safe_decode(Json) ->
-    safe_decode(Json, []).
+safe_decode(Json) -> jsone:try_decode(Json).
 
 -spec(safe_decode(json_text(), decode_options())
       -> {ok, json_term()} | {error, Reason :: term()}).
-safe_decode(Json, Opts) ->
-    try decode(Json, Opts) of
-        Term -> {ok, Term}
-    catch
-        error:Reason ->
-            {error, Reason}
-    end.
+safe_decode(Json, Opts) -> jsone:try_decode(Json, Opts).
 
 %%--------------------------------------------------------------------
 %% Helpers

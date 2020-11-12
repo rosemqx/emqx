@@ -18,6 +18,7 @@
 
 -behaviour(gen_server).
 
+-include("emqx.hrl").
 -include("types.hrl").
 
 -export([start_link/0, stop/0]).

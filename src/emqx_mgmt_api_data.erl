@@ -146,7 +146,7 @@ import(_Bindings, Params) ->
             FullFilename = filename:join([Dir, "data", Filename]),
             case file:read_file(FullFilename) of
                 {ok, Json} ->
-                    Data = emqx_json:decode(Json, [return_maps]),
+                    Data = emqx_json:decode(Json),
                     Version = emqx_mgmt:to_version(maps:get(<<"version">>, Data)),
                     case lists:member(Version, ?VERSIONS) of
                         true  ->

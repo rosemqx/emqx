@@ -16,8 +16,6 @@
 
 -module(emqx_mgmt_http).
 
--import(proplists, [get_value/3]).
-
 -export([ handle_request/2]).
 
 -export([init/2, http_handlers/0, is_authorized/1]).

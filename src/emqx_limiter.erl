@@ -16,6 +16,7 @@
 
 -module(emqx_limiter).
 
+-include("emqx.hrl").
 -include("types.hrl").
 
 -export([init/1, info/1, check/2]).

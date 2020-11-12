@@ -50,7 +50,7 @@ start(_Type, _Args) ->
 
 -spec(stop(State :: term()) -> term()).
 stop(_State) ->
-    ekka_mnesia:stop(),
+    ekka_mnesia:ensure_stopped(),
     %emqx_alarm_handler:unload(),
     emqx_boot:is_enabled(listeners)
       andalso emqx_listeners:stop(),

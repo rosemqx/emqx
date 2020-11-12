@@ -16,7 +16,7 @@
 
 -module(emqx_dashboard_api).
 
--include("emqx_dashboard.hrl").
+-include("emqx.hrl").
 
 -import(minirest, [return/0, return/1]).
 

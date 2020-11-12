@@ -16,8 +16,8 @@
 
 -module(emqx_mgmt_cli).
 
--include_lib("emqx/include/emqx.hrl").
--include_lib("emqx/include/emqx_mqtt.hrl").
+-include("emqx.hrl").
+-include("emqx_mqtt.hrl").
 
 -include("emqx_mgmt.hrl").
 

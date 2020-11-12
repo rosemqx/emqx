@@ -22,7 +22,7 @@
 
 -export([init/2, http_handlers/0, is_authorized/1]).
 
--include_lib("emqx/include/emqx.hrl").
+-include("emqx.hrl").
 
 -ifdef(TEST).
 -define(EXCEPT, []).

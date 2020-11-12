@@ -18,7 +18,7 @@
 
 -include("emqx_mgmt.hrl").
 
--include_lib("emqx/include/emqx.hrl").
+-include("emqx.hrl").
 
 -import(minirest, [return/1]).
 

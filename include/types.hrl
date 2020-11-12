@@ -24,3 +24,4 @@
 
 -type(mfargs() :: {module(), atom(), [term()]}).
 
+-type(mqtt_admin() :: #mqtt_admin{}).

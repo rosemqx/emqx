@@ -167,5 +167,7 @@
           until  :: integer()
         }).
 
+-record(mqtt_admin, {username, password, tags}).
+
 -endif.
 

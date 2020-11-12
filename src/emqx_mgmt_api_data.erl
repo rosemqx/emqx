@@ -16,10 +16,8 @@
 
 -module(emqx_mgmt_api_data).
 
--include_lib("emqx/include/emqx.hrl").
-
 -include_lib("kernel/include/file.hrl").
-
+-include("emqx.hrl").
 -include("emqx_mgmt.hrl").
 
 -import(minirest, [ return/0

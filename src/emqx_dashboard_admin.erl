@@ -20,7 +20,8 @@
 
 -behaviour(gen_server).
 
--include("emqx_dashboard.hrl").
+-include("emqx.hrl").
+-include("types.hrl").
 
 -boot_mnesia({mnesia, [boot]}).
 -copy_mnesia({mnesia, [copy]}).
@@ -51,6 +52,9 @@
         , terminate/2
         , code_change/3
         ]).
+
+
+-define(EMPTY_KEY(Key), ((Key == undefined) orelse (Key == <<>>))).
 
 %%--------------------------------------------------------------------
 %% Mnesia bootstrap

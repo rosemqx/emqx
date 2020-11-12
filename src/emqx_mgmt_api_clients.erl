@@ -17,9 +17,8 @@
 -module(emqx_mgmt_api_clients).
 
 -include("emqx_mgmt.hrl").
-
--include_lib("emqx/include/emqx_mqtt.hrl").
--include_lib("emqx/include/emqx.hrl").
+-include("emqx_mqtt.hrl").
+-include("emqx.hrl").
 
 -import(minirest, [ return/0
                   , return/1

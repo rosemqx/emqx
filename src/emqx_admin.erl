@@ -183,11 +183,11 @@ check(Username, Password) ->
 %%--------------------------------------------------------------------
 
 init([]) ->
+    io:format("init administrator"),
     %% Add default admin user
     _ = add_default_user(
-        binenv(default_user_username), 
-        binenv(default_user_passwd)
-        ),
+        iolist_to_binary(application:get_env(emqx, default_user_username, "")),
+        iolist_to_binary(application:get_env(emqx, default_user_passwd, ""))),
     {ok, state}.
 
 handle_call(_Req, _From, State) ->
@@ -221,12 +221,8 @@ salt() ->
     Salt = rand:uniform(16#ffffffff),
     <<Salt:32>>.
 
-binenv(Key) ->
-    iolist_to_binary(application:get_env(emqx, Key, "")).
-
-add_default_user(Username, Password) when ?EMPTY_KEY(Username) orelse ?EMPTY_KEY(Password) ->
-    ignore;
-
+add_default_user(undefined, _) -> ignore;
+add_default_user(_, undefined) -> ignore;
 add_default_user(Username, Password) ->
     case lookup_user(Username) of
         [] -> add_user(Username, Password, <<"administrator">>);

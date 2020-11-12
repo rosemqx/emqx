@@ -27,10 +27,9 @@
 %%--------------------------------------------------------------------
 
 start(_Type, _Args) ->
-  application:start(os_mon),
+    application:start(os_mon),
     print_banner(),
-    ok = ekka_mnesia:start(),
-    ekka:start(),
+    ok = ekka:start(),
     {ok, Sup} = emqx_sup:start_link(),
     ok = emqx_modules:load(),
     ok = emqx_plugins:init(),

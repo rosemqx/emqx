@@ -68,11 +68,35 @@ init([]) ->
     CMSup = child_spec(emqx_cm_sup, supervisor),
     SysSup = child_spec(emqx_sys_sup, supervisor),
     ModSup = child_spec(emqx_mod_sup, supervisor),
+
+    Admin = #{id => emqx_dashboard_admin,
+      start => {emqx_dashboard_admin, start_link, []},
+      restart => permanent,
+      shutdown => 5000,
+      type => worker,
+      modules => [emqx_dashboard_admin]},
+
+    Dispatch = cowboy_router:compile([{'_', [
+      {"/status", emqx_mgmt_http, []}] ++
+      minirest:handlers([{"/api/v4/[...]", minirest, emqx_mgmt_http:http_handlers()}])
+      }]),
+
+    Opts = #{
+      connection_type => worker,
+      handshake_timeout => 10000,
+      max_connections => 1000,
+      num_acceptors => 100,
+      shutdown => 5000,
+      socket_opts => [{port, application:get_env(emqx_management, port, 8080)}]
+    },
+    Spec = ranch:child_spec('http:management', ranch_tcp, Opts, cowboy_clear, #{env => #{dispatch => Dispatch}}),
+
     Childs = [KernelSup] ++
              [RouterSup || emqx_boot:is_enabled(router)] ++
              [BrokerSup || emqx_boot:is_enabled(broker)] ++
              [CMSup || emqx_boot:is_enabled(broker)] ++
-             [SysSup] ++ [ModSup],
+             [SysSup] ++ [ModSup] ++ [Admin, Spec],
+
     SupFlags = #{strategy => one_for_all,
                  intensity => 0,
                  period => 1

@@ -29,7 +29,9 @@
 %%--------------------------------------------------------------------
 
 start(_Type, _Args) ->
+  application:start(os_mon),
     print_banner(),
+    ok = ekka_mnesia:start(),
     ekka:start(),
     {ok, Sup} = emqx_sup:start_link(),
     ok = emqx_modules:load(),
@@ -39,15 +41,18 @@ start(_Type, _Args) ->
       andalso (ok = emqx_listeners:start()),
     start_autocluster(),
     register(emqx, self()),
-    %case emqx_alarm_handler:load() of 
+    %case emqx_alarm_handler:load() of
     %    ok -> io:format("swapped handler ~n");
     %    {error,Error} -> io:format("alarm handler ~p~n", [Error])
     %end,
     print_vsn(),
+    emqx_mgmt_auth:add_default_app(),
+    emqx_mgmt_cli:load(),
     {ok, Sup}.
 
 -spec(stop(State :: term()) -> term()).
 stop(_State) ->
+    ekka_mnesia:stop(),
     %emqx_alarm_handler:unload(),
     emqx_boot:is_enabled(listeners)
       andalso emqx_listeners:stop(),

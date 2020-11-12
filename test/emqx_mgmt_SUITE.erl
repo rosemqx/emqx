@@ -53,16 +53,16 @@ groups() ->
        ]}].
 
 apps() ->
-    [emqx, emqx_management].
+    [emqx].
 
 init_per_suite(Config) ->
     ekka_mnesia:start(),
     emqx_mgmt_auth:mnesia(boot),
-    emqx_ct_helpers:start_apps([emqx_management]),
+    emqx_ct_helpers:start_apps([emqx]),
     Config.
 
 end_per_suite(_Config) ->
-    emqx_ct_helpers:stop_apps([emqx_management, emqx]).
+    emqx_ct_helpers:stop_apps([emqx]).
 
 t_app(_Config) ->
     {ok, AppSecret} = emqx_mgmt_auth:add_app(<<"app_id">>, <<"app_name">>),
@@ -74,7 +74,7 @@ t_app(_Config) ->
                  lists:keyfind(<<"app_id">>, 1, emqx_mgmt_auth:list_apps())),
     emqx_mgmt_auth:del_app(<<"app_id">>),
     %% Use the default application secret
-    application:set_env(emqx_management, application, [{default_secret, <<"public">>}]),
+    application:set_env(emqx, application, [{default_secret, <<"public">>}]),
     {ok, AppSecret1} = emqx_mgmt_auth:add_app(<<"app_id">>, <<"app_name">>, <<"app_desc">>, true, undefined),
     ?assert(emqx_mgmt_auth:is_authorized(<<"app_id">>, AppSecret1)),
     ?assertEqual(AppSecret1, emqx_mgmt_auth:get_appsecret(<<"app_id">>)),
@@ -82,7 +82,7 @@ t_app(_Config) ->
     ?assertEqual({<<"app_id">>, AppSecret1, <<"app_name">>, <<"app_desc">>, true, undefined},
                  lists:keyfind(<<"app_id">>, 1, emqx_mgmt_auth:list_apps())),
     emqx_mgmt_auth:del_app(<<"app_id">>),
-    application:set_env(emqx_management, application, []),
+    application:set_env(emqx, application, []),
     %% Specify the application secret
     {ok, AppSecret2} = emqx_mgmt_auth:add_app(<<"app_id">>, <<"app_name">>, <<"secret">>, <<"app_desc">>, true, undefined),
     ?assert(emqx_mgmt_auth:is_authorized(<<"app_id">>, AppSecret2)),
@@ -250,8 +250,7 @@ t_plugins_cmd(_) ->
     meck:expect(emqx_plugins, load, fun(_) -> ok end),
     meck:expect(emqx_plugins, unload, fun(_) -> ok end),
     meck:expect(emqx_plugins, reload, fun(_) -> ok end),
-    ?assertEqual(emqx_mgmt_cli:plugins(["list"]), ok),
-    ?assertEqual(emqx_mgmt_cli:plugins(["unload", "emqx_management"]), "Plugin emqx_management can not be unloaded.~n").
+    ?assertEqual(emqx_mgmt_cli:plugins(["list"]), ok).
 
 t_modules_cmd(_) ->
     print_mock(),

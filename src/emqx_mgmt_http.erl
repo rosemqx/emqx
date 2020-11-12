@@ -24,7 +24,6 @@
 
 -include_lib("emqx/include/emqx.hrl").
 
--define(APP, emqx_management).
 -ifdef(TEST).
 -define(EXCEPT, []).
 -else.

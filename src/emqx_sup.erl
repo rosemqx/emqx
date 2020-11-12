@@ -87,7 +87,7 @@ init([]) ->
       max_connections => 1000,
       num_acceptors => 100,
       shutdown => 5000,
-      socket_opts => [{port, application:get_env(emqx_management, port, 8080)}]
+      socket_opts => [{port, application:get_env(emqx, mgmt_port, 8080)}]
     },
     Spec = ranch:child_spec('http:management', ranch_tcp, Opts, cowboy_clear, #{env => #{dispatch => Dispatch}}),
 

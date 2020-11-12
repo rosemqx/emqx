@@ -38,8 +38,6 @@
 %% APP Auth/ACL API
 -export([is_authorized/2]).
 
--define(APP, emqx_management).
-
 -record(mqtt_app, {id, secret, name, desc, status, expired}).
 
 -type(appid() :: binary()).
@@ -64,8 +62,8 @@ mnesia(copy) ->
 %%--------------------------------------------------------------------
 -spec(add_default_app() -> ok | {ok, appsecret()} | {error, term()}).
 add_default_app() ->
-    AppId = application:get_env(?APP, default_application_id, undefined),
-    AppSecret = application:get_env(?APP, default_application_secret, undefined),
+    AppId = application:get_env(emqx, default_application_id, undefined),
+    AppSecret = application:get_env(emqx, default_application_secret, undefined),
     case {AppId, AppSecret} of
         {undefined, _} -> ok;
         {_, undefined} -> ok;
@@ -125,7 +123,7 @@ force_add_app(AppId, Name, Secret, Desc, Status, Expired) ->
 generate_appsecret_if_need(InSecrt) when is_binary(InSecrt), byte_size(InSecrt) > 0 ->
     InSecrt;
 generate_appsecret_if_need(_) ->
-    AppConf = application:get_env(?APP, application, []),
+    AppConf = application:get_env(emqx, application, []),
     case proplists:get_value(default_secret,  AppConf) of
        undefined -> emqx_guid:to_base62(emqx_guid:gen());
        Secret when is_binary(Secret) -> Secret

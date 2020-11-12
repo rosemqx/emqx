@@ -290,9 +290,6 @@ plugins(["load", Name]) ->
             emqx_ctl:print("Load plugin ~s error: ~p.~n", [Name, Reason])
     end;
 
-plugins(["unload", "emqx_management"])->
-    emqx_ctl:print("Plugin emqx_management can not be unloaded.~n");
-
 plugins(["unload", Name]) ->
     case emqx_plugins:unload(list_to_atom(Name)) of
         ok ->

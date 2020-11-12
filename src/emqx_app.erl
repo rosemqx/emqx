@@ -22,8 +22,6 @@
         , stop/1
         ]).
 
--define(APP, emqx).
-
 %%--------------------------------------------------------------------
 %% Application callbacks
 %%--------------------------------------------------------------------
@@ -63,7 +61,7 @@ stop(_State) ->
 %%--------------------------------------------------------------------
 
 print_banner() ->
-    io:format("Starting ~s on node ~s~n", [?APP, node()]).
+    io:format("Starting ~s on node ~s~n", [emqx, node()]).
 
 print_vsn() ->
     {ok, Descr} = application:get_key(description),
@@ -77,5 +75,5 @@ print_vsn() ->
 start_autocluster() ->
     ekka:callback(prepare, fun emqx:shutdown/1),
     ekka:callback(reboot,  fun emqx:reboot/0),
-    ekka:autocluster(?APP).
+    ekka:autocluster(emqx).
 

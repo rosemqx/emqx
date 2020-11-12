@@ -76,12 +76,12 @@ auth(_Bindings, Params) when is_map(Params) -> auth(_Bindings, maps:to_list(Para
 auth(_Bindings, Params) ->
     Username = maps:get(<<"username">>, Params),
     Password = maps:get(<<"password">>, Params),
-    return(emqx_dashboard_admin:check(Username, Password)).
+    return(emqx_admin:check(Username, Password)).
 
 change_pwd(#{username := Username}, Params) ->
     OldPwd = maps:get(<<"old_pwd">>, Params),
     NewPwd = maps:get(<<"new_pwd">>, Params),
-    return(emqx_dashboard_admin:change_password(Username, OldPwd, NewPwd)).
+    return(emqx_admin:change_password(Username, OldPwd, NewPwd)).
 
 create(_Bindings, Params) ->
     Username = maps:get(<<"username">>, Params),
@@ -89,21 +89,21 @@ create(_Bindings, Params) ->
     Tags = maps:get(<<"tags">>, Params),
     return(case ?EMPTY(Username) orelse ?EMPTY(Password) of
                true  -> {error, <<"Username or password undefined">>};
-               false -> emqx_dashboard_admin:add_user(Username, Password, Tags)
+               false -> emqx_admin:add_user(Username, Password, Tags)
            end).
 
 list(_Bindings, _Params) ->
-    return({ok, [row(User) || User <- emqx_dashboard_admin:all_users()]}).
+    return({ok, [row(User) || User <- emqx_admin:all_users()]}).
 
 update(#{name := Username}, Params) ->
     Tags = maps:get(<<"tags">>, Params),
-    return(emqx_dashboard_admin:update_user(Username, Tags)).
+    return(emqx_admin:update_user(Username, Tags)).
 
 delete(#{name := <<"admin">>}, _Params) ->
     return({error, <<"Cannot delete admin">>});
 
 delete(#{name := Username}, _Params) ->
-    return(emqx_dashboard_admin:remove_user(Username)).
+    return(emqx_admin:remove_user(Username)).
 
 row(#mqtt_admin{username = Username, tags = Tags}) ->
     #{username => Username, tags => Tags}.

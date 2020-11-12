@@ -699,7 +699,7 @@ import_users(Users) ->
                         <<"password">> := Password,
                         <<"tags">> := Tags}) ->
                       NPassword = base64:decode(Password),
-                      emqx_dashboard_admin:force_add_user(Username, NPassword, Tags)
+                      emqx_admin:force_add_user(Username, NPassword, Tags)
                   end, Users).
 
 import_auth_clientid(Lists) ->

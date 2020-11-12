@@ -68,7 +68,7 @@ is_authorized(_Path, Req) -> basic_auth(Req).
 basic_auth(Req) ->
     case cowboy_req:parse_header(<<"authorization">>, Req) of
         {basic, AppId = Username, AppSecret = Password} ->
-            case emqx_dashboard_admin:check(iolist_to_binary(Username), iolist_to_binary(Password)) of
+            case emqx_admin:check(iolist_to_binary(Username), iolist_to_binary(Password)) of
                 ok -> true;
                 {error, Reason} ->
                     io:format("Authorization Failure: username=~s, reason=~p~n", [Username, Reason]),

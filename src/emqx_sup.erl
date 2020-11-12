@@ -69,13 +69,7 @@ init([]) ->
     CMSup = child_spec(emqx_cm_sup, supervisor),
     SysSup = child_spec(emqx_sys_sup, supervisor),
     ModSup = child_spec(emqx_mod_sup, supervisor),
-
-    Admin = #{id => emqx_admin,
-      start => {emqx_admin, start_link, []},
-      restart => permanent,
-      shutdown => 5000,
-      type => worker,
-      modules => [emqx_admin]},
+    Admin = child_spec(emqx_admin, worker),
 
     Dispatch = cowboy_router:compile([{'_', [
       {"/status", emqx_mgmt_http, []}] ++

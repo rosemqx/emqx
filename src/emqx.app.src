@@ -1,11 +1,8 @@
-{application,emqx,
-             [{description,"EMQ X Broker"},
-              {vsn,"git"},
-              {modules,[]},
-              {registered,[emqx_sup]},
-              {applications,[kernel,stdlib,jsone,gproc,gen_rpc,esockd,cowboy,replayq,ekka,ssl_verify_fun]},
-              {env,[]},
-              {mod,{emqx_app,[]}},
-              {maintainers,["Feng Lee <feng@emqx.io>"]},
-              {licenses,["Apache-2.0"]},
-              {links,[{"Github","https://github.com/emqx/emqx"}]}]}.
+{application,emqx, [
+    {description,"XIO EMQ X 4.2 Elixir"},
+    {vsn,"git"},
+    {modules,[]},
+    {registered,[]},
+    {applications,[kernel,stdlib,jsone,gproc,gen_rpc,esockd,cowboy,replayq,ekka,ssl_verify_fun]},
+    {env,[]},
+    {mod,{emqx,[]}} ]}.

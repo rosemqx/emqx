@@ -14,7 +14,7 @@
 %% limitations under the License.
 %%--------------------------------------------------------------------
 
-%% @doc Web dashboard admin authentication with username and password.
+%% @doc Web admin authentication with username and password.
 
 -module(emqx_admin).
 

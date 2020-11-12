@@ -16,8 +16,7 @@
 
 -module(emqx_mgmt_api_banned).
 
--include_lib("emqx/include/emqx.hrl").
-
+-include("emqx.hrl").
 -include("emqx_mgmt.hrl").
 
 -import(proplists, [get_value/2]).

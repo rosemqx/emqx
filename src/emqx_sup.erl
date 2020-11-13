@@ -69,28 +69,12 @@ init([]) ->
     CMSup = child_spec(emqx_cm_sup, supervisor),
     SysSup = child_spec(emqx_sys_sup, supervisor),
     ModSup = child_spec(emqx_mod_sup, supervisor),
-    Admin = child_spec(emqx_admin, worker),
-
-    Dispatch = cowboy_router:compile([{'_', [
-      {"/status", emqx_mgmt_http, []}] ++
-      minirest:handlers([{"/api/v4/[...]", minirest, emqx_mgmt_http:http_handlers()}])
-      }]),
-
-    Opts = #{
-      connection_type => worker,
-      handshake_timeout => 10000,
-      max_connections => 1000,
-      num_acceptors => 100,
-      shutdown => 5000,
-      socket_opts => [{port, application:get_env(emqx, mgmt_port, 8080)}]
-    },
-    Spec = ranch:child_spec('http:management', ranch_tcp, Opts, cowboy_clear, #{env => #{dispatch => Dispatch}}),
-
+    Xio = child_spec(xio_http_sup, supervisor),
     Childs = [KernelSup] ++
              [RouterSup || emqx_boot:is_enabled(router)] ++
              [BrokerSup || emqx_boot:is_enabled(broker)] ++
              [CMSup || emqx_boot:is_enabled(broker)] ++
-             [SysSup] ++ [ModSup] ++ [Admin, Spec],
+             [SysSup] ++ [ModSup] ++ [Xio],
 
     SupFlags = #{strategy => one_for_all,
                  intensity => 0,

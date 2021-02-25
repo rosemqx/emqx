@@ -28,7 +28,7 @@ config :gen_rpc,
     tcp_server_port: 5369
 
 config :emqx,
-    mgmt_port: 8080,
+    mgmt_port: 8081,
     default_user_passwd: 'public',
     default_user_username: 'admin',
     max_row_limit: 10000,

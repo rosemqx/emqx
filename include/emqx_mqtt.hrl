@@ -1,4 +1,5 @@
-%% Copyright (c) 2018 EMQ Technologies Co., Ltd. All Rights Reserved.
+%%--------------------------------------------------------------------
+%% Copyright (c) 2020 EMQ Technologies Co., Ltd. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -11,9 +12,12 @@
 %% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
+%%--------------------------------------------------------------------
 
 -ifndef(EMQ_X_MQTT_HRL).
 -define(EMQ_X_MQTT_HRL, true).
+
+-define(UINT_MAX, 16#FFFFFFFF).
 
 %%--------------------------------------------------------------------
 %% MQTT SockOpts
@@ -171,10 +175,12 @@
 -define(RC_WILDCARD_SUBSCRIPTIONS_NOT_SUPPORTED,   16#A2).
 
 %%--------------------------------------------------------------------
-%% Maximum MQTT Packet Length
+%% Maximum MQTT Packet ID and Length
 %%--------------------------------------------------------------------
 
--define(MAX_PACKET_SIZE, 16#fffffff).
+-define(MAX_PACKET_ID, 16#FFFF).
+-define(MAX_PACKET_SIZE, 16#FFFFFFF).
+-define(MAX_TOPIC_AlIAS, 16#FFFF).
 
 %%--------------------------------------------------------------------
 %% MQTT Frame Mask
@@ -201,8 +207,7 @@
 -define(DEFAULT_SUBOPTS, #{rh  => 0, %% Retain Handling
                            rap => 0, %% Retain as Publish
                            nl  => 0, %% No Local
-                           qos => 0, %% QoS
-                           rc  => 0  %% Reason Code
+                           qos => 0  %% QoS
                           }).
 
 -record(mqtt_packet_connect, {
@@ -214,9 +219,9 @@
           will_qos     = ?QOS_0,
           will_retain  = false,
           keepalive    = 0,
-          properties   = undefined,
-          client_id    = <<>>,
-          will_props   = undefined,
+          properties   = #{},
+          clientid     = <<>>,
+          will_props   = #{},
           will_topic   = undefined,
           will_payload = undefined,
           username     = undefined,
@@ -226,53 +231,53 @@
 -record(mqtt_packet_connack, {
           ack_flags,
           reason_code,
-          properties
+          properties = #{}
         }).
 
 -record(mqtt_packet_publish, {
           topic_name,
           packet_id,
-          properties
+          properties = #{}
         }).
 
 -record(mqtt_packet_puback, {
           packet_id,
           reason_code,
-          properties
+          properties = #{}
         }).
 
 -record(mqtt_packet_subscribe, {
           packet_id,
-          properties,
+          properties = #{},
           topic_filters
         }).
 
 -record(mqtt_packet_suback, {
           packet_id,
-          properties,
+          properties = #{},
           reason_codes
         }).
 
 -record(mqtt_packet_unsubscribe, {
           packet_id,
-          properties,
+          properties = #{},
           topic_filters
         }).
 
 -record(mqtt_packet_unsuback, {
           packet_id,
-          properties,
+          properties = #{},
           reason_codes
         }).
 
 -record(mqtt_packet_disconnect, {
           reason_code,
-          properties
+          properties = #{}
         }).
 
 -record(mqtt_packet_auth, {
           reason_code,
-          properties
+          properties = #{}
         }).
 
 %%--------------------------------------------------------------------
@@ -297,8 +302,25 @@
         }).
 
 %%--------------------------------------------------------------------
+%% MQTT Message Internal
+%%--------------------------------------------------------------------
+
+-record(mqtt_msg, {
+          qos = ?QOS_0,
+          retain = false,
+          dup = false,
+          packet_id,
+          topic,
+          props,
+          payload
+         }).
+
+%%--------------------------------------------------------------------
 %% MQTT Packet Match
 %%--------------------------------------------------------------------
+
+-define(CONNECT_PACKET(),
+        #mqtt_packet{header = #mqtt_packet_header{type = ?CONNECT}}).
 
 -define(CONNECT_PACKET(Var),
     #mqtt_packet{header   = #mqtt_packet_header{type = ?CONNECT},
@@ -346,6 +368,13 @@
     #mqtt_packet{header   = #mqtt_packet_header{type = ?PUBLISH,
                                                 qos  = QoS},
                  variable = #mqtt_packet_publish{packet_id = PacketId}
+                }).
+
+-define(PUBLISH_PACKET(QoS, Topic, PacketId),
+    #mqtt_packet{header   = #mqtt_packet_header{type = ?PUBLISH,
+                                                qos  = QoS},
+                 variable = #mqtt_packet_publish{topic_name = Topic,
+                                                 packet_id  = PacketId}
                 }).
 
 -define(PUBLISH_PACKET(QoS, Topic, PacketId, Payload),

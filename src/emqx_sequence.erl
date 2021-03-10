@@ -1,4 +1,5 @@
-%% Copyright (c) 2018 EMQ Technologies Co., Ltd. All Rights Reserved.
+%%--------------------------------------------------------------------
+%% Copyright (c) 2020 EMQ Technologies Co., Ltd. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -11,16 +12,28 @@
 %% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
+%%--------------------------------------------------------------------
 
 -module(emqx_sequence).
 
--export([create/1, nextval/2, currval/2, reclaim/2, delete/1]).
-
--type(key() :: term()).
--type(name() :: atom()).
--type(seqid() :: non_neg_integer()).
+-export([ create/1
+        , nextval/2
+        , currval/2
+        , reclaim/2
+        , delete/1
+        ]).
 
 -export_type([seqid/0]).
+
+-type(key() :: term()).
+
+-type(name() :: atom()).
+
+-type(seqid() :: non_neg_integer()).
+
+%%--------------------------------------------------------------------
+%% APIs
+%%--------------------------------------------------------------------
 
 %% @doc Create a sequence.
 -spec(create(name()) -> ok).

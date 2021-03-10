@@ -1,4 +1,5 @@
-%% Copyright (c) 2018 EMQ Technologies Co., Ltd. All Rights Reserved.
+%%--------------------------------------------------------------------
+%% Copyright (c) 2020 EMQ Technologies Co., Ltd. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -11,12 +12,20 @@
 %% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
+%%--------------------------------------------------------------------
 
 -module(emqx_sup).
 
 -behaviour(supervisor).
 
--export([start_link/0, start_child/1, start_child/2, stop_child/1]).
+-include("emqx.hrl").
+-include("types.hrl").
+
+-export([ start_link/0
+        , start_child/1
+        , start_child/2
+        , stop_child/1
+        ]).
 
 -export([init/1]).
 
@@ -24,29 +33,28 @@
                         | {ok, supervisor:child(), term()}
                         | {error, term()}).
 
--define(SUPERVISOR, ?MODULE).
-
-start_link() ->
-    supervisor:start_link({local, ?SUPERVISOR}, ?MODULE, []).
+-define(SUP, ?MODULE).
 
 %%--------------------------------------------------------------------
 %% API
 %%--------------------------------------------------------------------
 
+-spec(start_link() -> startlink_ret()).
+start_link() ->
+    supervisor:start_link({local, ?SUP}, ?MODULE, []).
+
 -spec(start_child(supervisor:child_spec()) -> startchild_ret()).
-start_child(ChildSpec) when is_tuple(ChildSpec) ->
-    supervisor:start_child(?SUPERVISOR, ChildSpec).
+start_child(ChildSpec) when is_map(ChildSpec) ->
+    supervisor:start_child(?SUP, ChildSpec).
 
 -spec(start_child(module(), worker | supervisor) -> startchild_ret()).
-start_child(Mod, worker) ->
-    start_child(worker_spec(Mod));
-start_child(Mod, supervisor) ->
-    start_child(supervisor_spec(Mod)).
+start_child(Mod, Type) ->
+    start_child(child_spec(Mod, Type)).
 
 -spec(stop_child(supervisor:child_id()) -> ok | {error, term()}).
 stop_child(ChildId) ->
-    case supervisor:terminate_child(?SUPERVISOR, ChildId) of
-        ok    -> supervisor:delete_child(?SUPERVISOR, ChildId);
+    case supervisor:terminate_child(?SUP, ChildId) of
+        ok -> supervisor:delete_child(?SUP, ChildId);
         Error -> Error
     end.
 
@@ -55,41 +63,44 @@ stop_child(ChildId) ->
 %%--------------------------------------------------------------------
 
 init([]) ->
-    %% Kernel Sup
-    KernelSup = supervisor_spec(emqx_kernel_sup),
-    %% Router Sup
-    RouterSup = supervisor_spec(emqx_router_sup),
-    %% Broker Sup
-    BrokerSup = supervisor_spec(emqx_broker_sup),
-    %% BridgeSup
-    LocalBridgeSup = supervisor_spec(emqx_local_bridge_sup_sup),
+    KernelSup = child_spec(emqx_kernel_sup, supervisor),
+    RouterSup = child_spec(emqx_router_sup, supervisor),
+    BrokerSup = child_spec(emqx_broker_sup, supervisor),
+    CMSup = child_spec(emqx_cm_sup, supervisor),
+    SysSup = child_spec(emqx_sys_sup, supervisor),
+    ModSup = child_spec(emqx_mod_sup, supervisor),
+    Xio = child_spec(xio_http_sup, supervisor),
+    Childs = [KernelSup] ++
+             [RouterSup || emqx_boot:is_enabled(router)] ++
+             [BrokerSup || emqx_boot:is_enabled(broker)] ++
+             [CMSup || emqx_boot:is_enabled(broker)] ++
+             [SysSup] ++ [ModSup] ++ [Xio],
 
-    BridgeSup = supervisor_spec(emqx_bridge_sup),
-    %% AccessControl
-    AccessControl = worker_spec(emqx_access_control),
-    %% Session Manager
-    SMSup = supervisor_spec(emqx_sm_sup),
-    %% Connection Manager
-    CMSup = supervisor_spec(emqx_cm_sup),
-    %% Sys Sup
-    SysSup = supervisor_spec(emqx_sys_sup),
-    {ok, {{one_for_all, 0, 1},
-          [KernelSup,
-           RouterSup,
-           BrokerSup,
-           LocalBridgeSup,
-           BridgeSup,
-           AccessControl,
-           SMSup,
-           CMSup,
-           SysSup]}}.
+    SupFlags = #{strategy => one_for_all,
+                 intensity => 0,
+                 period => 1
+                },
+    {ok, {SupFlags, Childs}}.
 
 %%--------------------------------------------------------------------
 %% Internal functions
 %%--------------------------------------------------------------------
 
-worker_spec(M) ->
-    {M, {M, start_link, []}, permanent, 30000, worker, [M]}.
-supervisor_spec(M) ->
-    {M, {M, start_link, []}, permanent, infinity, supervisor, [M]}.
+child_spec(Mod, supervisor) ->
+    #{id => Mod,
+      start => {Mod, start_link, []},
+      restart => permanent,
+      shutdown => infinity,
+      type => supervisor,
+      modules => [Mod]
+     };
+
+child_spec(Mod, worker) ->
+    #{id => Mod,
+      start => {Mod, start_link, []},
+      restart => permanent,
+      shutdown => 15000,
+      type => worker,
+      modules => [Mod]
+     }.
 

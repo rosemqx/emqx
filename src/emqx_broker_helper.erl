@@ -1,4 +1,5 @@
-%% Copyright (c) 2018 EMQ Technologies Co., Ltd. All Rights Reserved.
+%%--------------------------------------------------------------------
+%% Copyright (c) 2020 EMQ Technologies Co., Ltd. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -11,21 +12,42 @@
 %% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
+%%--------------------------------------------------------------------
 
 -module(emqx_broker_helper).
 
 -behaviour(gen_server).
 
 -include("logger.hrl").
+-include("emqx.hrl").
+-include("types.hrl").
+
+-logger_header("[Broker Helper]").
 
 -export([start_link/0]).
--export([register_sub/2]).
--export([lookup_subid/1, lookup_subpid/1]).
--export([get_sub_shard/2]).
--export([create_seq/1, reclaim_seq/1]).
 
--export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2,
-         code_change/3]).
+%% APIs
+-export([ register_sub/2
+        , lookup_subid/1
+        , lookup_subpid/1
+        , get_sub_shard/2
+        , create_seq/1
+        , reclaim_seq/1
+        ]).
+
+%% gen_server callbacks
+-export([ init/1
+        , handle_call/3
+        , handle_cast/2
+        , handle_info/2
+        , terminate/2
+        , code_change/3
+        ]).
+
+-ifdef(TEST).
+-compile(export_all).
+-compile(nowarn_export_all).
+-endif.
 
 -define(HELPER, ?MODULE).
 -define(SUBID, emqx_subid).
@@ -35,7 +57,7 @@
 
 -define(BATCH_SIZE, 100000).
 
--spec(start_link() -> emqx_types:startlink_ret()).
+-spec(start_link() -> startlink_ret()).
 start_link() ->
     gen_server:start_link({local, ?HELPER}, ?MODULE, [], []).
 
@@ -50,11 +72,11 @@ register_sub(SubPid, SubId) when is_pid(SubPid) ->
             error(subid_conflict)
     end.
 
--spec(lookup_subid(pid()) -> emqx_types:subid() | undefined).
+-spec(lookup_subid(pid()) -> maybe(emqx_types:subid())).
 lookup_subid(SubPid) when is_pid(SubPid) ->
     emqx_tables:lookup_value(?SUBMON, SubPid).
 
--spec(lookup_subpid(emqx_types:subid()) -> pid()).
+-spec(lookup_subpid(emqx_types:subid()) -> maybe(pid())).
 lookup_subpid(SubId) ->
     emqx_tables:lookup_value(?SUBID, SubId).
 
@@ -78,9 +100,9 @@ create_seq(Topic) ->
 reclaim_seq(Topic) ->
     emqx_sequence:reclaim(?SUBSEQ, Topic).
 
-%%------------------------------------------------------------------------------
+%%--------------------------------------------------------------------
 %% gen_server callbacks
-%%------------------------------------------------------------------------------
+%%--------------------------------------------------------------------
 
 init([]) ->
     %% Helper table
@@ -98,7 +120,7 @@ init([]) ->
     {ok, #{pmon => emqx_pmon:new()}}.
 
 handle_call(Req, _From, State) ->
-    ?ERROR("[BrokerHelper] unexpected call: ~p", [Req]),
+    ?LOG(error, "Unexpected call: ~p", [Req]),
     {reply, ignored, State}.
 
 handle_cast({register_sub, SubPid, SubId}, State = #{pmon := PMon}) ->
@@ -107,7 +129,7 @@ handle_cast({register_sub, SubPid, SubId}, State = #{pmon := PMon}) ->
     {noreply, State#{pmon := emqx_pmon:monitor(SubPid, PMon)}};
 
 handle_cast(Msg, State) ->
-    ?ERROR("[BrokerHelper] unexpected cast: ~p", [Msg]),
+    ?LOG(error, "Unexpected cast: ~p", [Msg]),
     {noreply, State}.
 
 handle_info({'DOWN', _MRef, process, SubPid, _Reason}, State = #{pmon := PMon}) ->
@@ -118,7 +140,7 @@ handle_info({'DOWN', _MRef, process, SubPid, _Reason}, State = #{pmon := PMon}) 
     {noreply, State#{pmon := PMon1}};
 
 handle_info(Info, State) ->
-    ?ERROR("[BrokerHelper] unexpected info: ~p", [Info]),
+    ?LOG(error, "Unexpected info: ~p", [Info]),
     {noreply, State}.
 
 terminate(_Reason, _State) ->
@@ -128,9 +150,9 @@ terminate(_Reason, _State) ->
 code_change(_OldVsn, State, _Extra) ->
     {ok, State}.
 
-%%------------------------------------------------------------------------------
+%%--------------------------------------------------------------------
 %% Internal functions
-%%------------------------------------------------------------------------------
+%%--------------------------------------------------------------------
 
 clean_down(SubPid) ->
     case ets:lookup(?SUBMON, SubPid) of

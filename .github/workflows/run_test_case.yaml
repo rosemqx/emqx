@@ -1,0 +1,19 @@
+name: Run test case
+
+on: [push, pull_request]
+
+jobs:
+
+    run_test_case:
+
+        runs-on: ubuntu-latest
+
+        container:
+            image: erlang:22.1
+
+        steps:
+        - uses: actions/checkout@v2
+        - name: Code dialyzer
+          run: rebar3 dialyzer
+        - name: Run tests
+          run: rebar3 do eunit

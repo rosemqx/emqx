@@ -1,4 +1,5 @@
-%% Copyright (c) 2018 EMQ Technologies Co., Ltd. All Rights Reserved.
+%%--------------------------------------------------------------------
+%% Copyright (c) 2020 EMQ Technologies Co., Ltd. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -11,30 +12,41 @@
 %% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
+%%--------------------------------------------------------------------
 
 -module(emqx_topic).
 
--export([match/2]).
--export([validate/1, validate/2]).
--export([levels/1]).
--export([triples/1]).
--export([words/1]).
--export([wildcard/1]).
--export([join/1]).
--export([feed_var/3]).
--export([systop/1]).
--export([parse/1, parse/2]).
+%% APIs
+-export([ match/2
+        , validate/1
+        , validate/2
+        , levels/1
+        , tokens/1
+        , words/1
+        , wildcard/1
+        , join/1
+        , prepend/2
+        , feed_var/3
+        , systop/1
+        , parse/1
+        , parse/2
+        ]).
 
+-export_type([ group/0
+             , topic/0
+             , word/0
+             ]).
+
+-type(group() :: binary()).
 -type(topic() :: binary()).
 -type(word() :: '' | '+' | '#' | binary()).
 -type(words() :: list(word())).
--type(triple() :: {root | binary(), word(), binary()}).
-
--export_type([topic/0, word/0, triple/0]).
 
 -define(MAX_TOPIC_LEN, 4096).
 
--include("emqx_mqtt.hrl").
+%%--------------------------------------------------------------------
+%% APIs
+%%--------------------------------------------------------------------
 
 %% @doc Is wildcard topic?
 -spec(wildcard(topic() | words()) -> true | false).
@@ -49,7 +61,7 @@ wildcard(['+'|_]) ->
 wildcard([_H|T]) ->
     wildcard(T).
 
-%% @doc Match Topic name with filter
+%% @doc Match Topic name with filter.
 -spec(match(Name, Filter) -> boolean() when
       Name   :: topic() | words(),
       Filter :: topic() | words()).
@@ -57,7 +69,7 @@ match(<<$$, _/binary>>, <<$+, _/binary>>) ->
     false;
 match(<<$$, _/binary>>, <<$#, _/binary>>) ->
     false;
-match(Name, Filter) when is_binary(Name) and is_binary(Filter) ->
+match(Name, Filter) when is_binary(Name), is_binary(Filter) ->
     match(words(Name), words(Filter));
 match([], []) ->
     true;
@@ -84,13 +96,15 @@ validate({Type, Topic}) when Type =:= name; Type =:= filter ->
 -spec(validate(name | filter, topic()) -> true).
 validate(_, <<>>) ->
     error(empty_topic);
-validate(_, Topic) when is_binary(Topic) and (size(Topic) > ?MAX_TOPIC_LEN) ->
+validate(_, Topic) when is_binary(Topic) andalso (size(Topic) > ?MAX_TOPIC_LEN) ->
     error(topic_too_long);
 validate(filter, Topic) when is_binary(Topic) ->
     validate2(words(Topic));
 validate(name, Topic) when is_binary(Topic) ->
     Words = words(Topic),
-    validate2(Words) and (not wildcard(Words)).
+    validate2(Words)
+        andalso (not wildcard(Words))
+            orelse error(topic_name_error).
 
 validate2([]) ->
     true;
@@ -112,34 +126,37 @@ validate3(<<C/utf8, _Rest/binary>>) when C == $#; C == $+; C == 0 ->
 validate3(<<_/utf8, Rest/binary>>) ->
     validate3(Rest).
 
-%% @doc Topic to triples
--spec(triples(topic()) -> list(triple())).
-triples(Topic) when is_binary(Topic) ->
-    triples(words(Topic), root, []).
-
-triples([], _Parent, Acc) ->
-    lists:reverse(Acc);
-triples([W|Words], Parent, Acc) ->
-    Node = join(Parent, W),
-    triples(Words, Node, [{Parent, W, Node}|Acc]).
-
-join(root, W) ->
-    bin(W);
-join(Parent, W) ->
-    <<(bin(Parent))/binary, $/, (bin(W))/binary>>.
+%% @doc Prepend a topic prefix.
+%% Ensured to have only one / between prefix and suffix.
+prepend(undefined, W) -> bin(W);
+prepend(<<>>, W) -> bin(W);
+prepend(Parent0, W) ->
+    Parent = bin(Parent0),
+    case binary:last(Parent) of
+        $/ -> <<Parent/binary, (bin(W))/binary>>;
+        _ -> <<Parent/binary, $/, (bin(W))/binary>>
+    end.
 
 bin('')  -> <<>>;
 bin('+') -> <<"+">>;
 bin('#') -> <<"#">>;
-bin(B) when is_binary(B) -> B.
+bin(B) when is_binary(B) -> B;
+bin(L) when is_list(L) -> list_to_binary(L).
 
+-spec(levels(topic()) -> pos_integer()).
 levels(Topic) when is_binary(Topic) ->
-    length(words(Topic)).
+    length(tokens(Topic)).
+
+-compile({inline, [tokens/1]}).
+%% @doc Split topic to tokens.
+-spec(tokens(topic()) -> list(binary())).
+tokens(Topic) ->
+    binary:split(Topic, <<"/">>, [global]).
 
 %% @doc Split Topic Path to Words
 -spec(words(topic()) -> words()).
 words(Topic) when is_binary(Topic) ->
-    [word(W) || W <- binary:split(Topic, <<"/">>, [global])].
+    [word(W) || W <- tokens(Topic)].
 
 word(<<>>)    -> '';
 word(<<"+">>) -> '+';
@@ -147,6 +164,7 @@ word(<<"#">>) -> '#';
 word(Bin)     -> Bin.
 
 %% @doc '$SYS' Topic.
+-spec(systop(atom()|string()|binary()) -> topic()).
 systop(Name) when is_atom(Name); is_list(Name) ->
     iolist_to_binary(lists:concat(["$SYS/brokers/", node(), "/", Name]));
 systop(Name) when is_binary(Name) ->
@@ -168,34 +186,36 @@ join([]) ->
 join([W]) ->
     bin(W);
 join(Words) ->
-    {_, Bin} =
-    lists:foldr(fun(W, {true, Tail}) ->
-                    {false, <<W/binary, Tail/binary>>};
-                   (W, {false, Tail}) ->
-                    {false, <<W/binary, "/", Tail/binary>>}
-                end, {true, <<>>}, [bin(W) || W <- Words]),
+    {_, Bin} = lists:foldr(
+                 fun(W, {true, Tail}) ->
+                         {false, <<W/binary, Tail/binary>>};
+                    (W, {false, Tail}) ->
+                         {false, <<W/binary, "/", Tail/binary>>}
+                 end, {true, <<>>}, [bin(W) || W <- Words]),
     Bin.
 
--spec(parse(topic()) -> {topic(), #{}}).
-parse(Topic) when is_binary(Topic) ->
-    parse(Topic, #{}).
+-spec(parse(topic() | {topic(), map()}) -> {topic(), #{share => binary()}}).
+parse(TopicFilter) when is_binary(TopicFilter) ->
+    parse(TopicFilter, #{});
+parse({TopicFilter, Options}) when is_binary(TopicFilter) ->
+    parse(TopicFilter, Options).
 
-parse(Topic = <<"$queue/", _/binary>>, #{share := _Group}) ->
-    error({invalid_topic, Topic});
-parse(Topic = <<?SHARE, "/", _/binary>>, #{share := _Group}) ->
-    error({invalid_topic, Topic});
-parse(<<"$queue/", Topic1/binary>>, Options) ->
-    parse(Topic1, maps:put(share, <<"$queue">>, Options));
-parse(Topic = <<?SHARE, "/", Topic1/binary>>, Options) ->
-    case binary:split(Topic1, <<"/">>) of
-        [<<>>] -> error({invalid_topic, Topic});
-        [_] -> error({invalid_topic, Topic});
-        [Group, Topic2] ->
-            case binary:match(Group, [<<"/">>, <<"+">>, <<"#">>]) of
-                nomatch -> {Topic2, maps:put(share, Group, Options)};
-                _ -> error({invalid_topic, Topic})
+-spec(parse(topic(), map()) -> {topic(), map()}).
+parse(TopicFilter = <<"$queue/", _/binary>>, #{share := _Group}) ->
+    error({invalid_topic_filter, TopicFilter});
+parse(TopicFilter = <<"$share/", _/binary>>, #{share := _Group}) ->
+    error({invalid_topic_filter, TopicFilter});
+parse(<<"$queue/", TopicFilter/binary>>, Options) ->
+    parse(TopicFilter, Options#{share => <<"$queue">>});
+parse(TopicFilter = <<"$share/", Rest/binary>>, Options) ->
+    case binary:split(Rest, <<"/">>) of
+        [_Any] -> error({invalid_topic_filter, TopicFilter});
+        [ShareName, Filter] ->
+            case binary:match(ShareName, [<<"+">>, <<"#">>]) of
+                nomatch -> parse(Filter, Options#{share => ShareName});
+                _ -> error({invalid_topic_filter, TopicFilter})
             end
     end;
-parse(Topic, Options) ->
-    {Topic, Options}.
+parse(TopicFilter, Options) ->
+    {TopicFilter, Options}.
 

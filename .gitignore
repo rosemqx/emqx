@@ -38,5 +38,4 @@ cuttlefish
 rebar.lock
 xrefr
 erlang.mk
-.applist
-**/Mnesia*/**
+

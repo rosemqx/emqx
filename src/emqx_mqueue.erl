@@ -1,4 +1,5 @@
-%% Copyright (c) 2018 EMQ Technologies Co., Ltd. All Rights Reserved.
+%%--------------------------------------------------------------------
+%% Copyright (c) 2020 EMQ Technologies Co., Ltd. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -11,7 +12,9 @@
 %% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
+%%--------------------------------------------------------------------
 
+%%--------------------------------------------------------------------
 %% @doc A Simple in-memory message queue.
 %%
 %% Notice that MQTT is not a (on-disk) persistent messaging queue.
@@ -42,17 +45,27 @@
 %%    unless `max_len' is set to `0' which implies (`infinity').
 %%
 %% @end
+%%--------------------------------------------------------------------
 
 -module(emqx_mqueue).
 
 -include("emqx.hrl").
+-include("types.hrl").
 -include("emqx_mqtt.hrl").
 
--export([init/1]).
--export([is_empty/1]).
--export([len/1, max_len/1]).
--export([in/2, out/1]).
--export([stats/1, dropped/1]).
+-export([ init/1
+        , info/1
+        , info/2
+        ]).
+
+-export([ is_empty/1
+        , len/1
+        , max_len/1
+        , in/2
+        , out/1
+        , stats/1
+        , dropped/1
+        ]).
 
 -export_type([mqueue/0, options/0]).
 
@@ -66,7 +79,7 @@
                      default_priority => highest | lowest,
                      store_qos0 => boolean()
                     }).
--type(message() :: pemqx_types:message()).
+-type(message() :: emqx_types:message()).
 
 -type(stat() :: {len, non_neg_integer()}
               | {max_len, non_neg_integer()}
@@ -76,6 +89,7 @@
 -define(LOWEST_PRIORITY, 0).
 -define(HIGHEST_PRIORITY, infinity).
 -define(MAX_LEN_INFINITY, 0).
+-define(INFO_KEYS, [store_qos0, max_len, len, dropped]).
 
 -record(mqueue, {
           store_qos0 = false              :: boolean(),
@@ -87,7 +101,7 @@
           q          = ?PQUEUE:new()      :: pq()
          }).
 
--opaque(mqueue() :: #mqueue{}).
+-type(mqueue() :: #mqueue{}).
 
 -spec(init(options()) -> mqueue()).
 init(Opts = #{max_len := MaxLen0, store_qos0 := QoS_0}) ->
@@ -100,6 +114,20 @@ init(Opts = #{max_len := MaxLen0, store_qos0 := QoS_0}) ->
             p_table = get_opt(priorities, Opts, ?NO_PRIORITY_TABLE),
             default_p = get_priority_opt(Opts)
            }.
+
+-spec(info(mqueue()) -> emqx_types:infos()).
+info(MQ) ->
+    maps:from_list([{Key, info(Key, MQ)} || Key <- ?INFO_KEYS]).
+
+-spec(info(atom(), mqueue()) -> term()).
+info(store_qos0, #mqueue{store_qos0 = True}) ->
+    True;
+info(max_len, #mqueue{max_len = MaxLen}) ->
+    MaxLen;
+info(len, #mqueue{len = Len}) ->
+    Len;
+info(dropped, #mqueue{dropped = Dropped}) ->
+    Dropped.
 
 is_empty(#mqueue{len = Len}) -> Len =:= 0.
 
@@ -117,9 +145,9 @@ stats(#mqueue{max_len = MaxLen, dropped = Dropped} = MQ) ->
     [{len, len(MQ)}, {max_len, MaxLen}, {dropped, Dropped}].
 
 %% @doc Enqueue a message.
--spec(in(message(), mqueue()) -> {undefined | message(), mqueue()}).
-in(#message{qos = ?QOS_0}, MQ = #mqueue{store_qos0 = false}) ->
-    {_Dropped = undefined, MQ};
+-spec(in(message(), mqueue()) -> {maybe(message()), mqueue()}).
+in(Msg = #message{qos = ?QOS_0}, MQ = #mqueue{store_qos0 = false}) ->
+    {_Dropped = Msg, MQ};
 in(Msg = #message{topic = Topic}, MQ = #mqueue{default_p = Dp,
                                                p_table = PTab,
                                                q = Q,

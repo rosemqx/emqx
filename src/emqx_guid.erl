@@ -1,4 +1,5 @@
-%% Copyright (c) 2018 EMQ Technologies Co., Ltd. All Rights Reserved.
+%%--------------------------------------------------------------------
+%% Copyright (c) 2020 EMQ Technologies Co., Ltd. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -11,6 +12,7 @@
 %% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
+%%--------------------------------------------------------------------
 
 %% @doc Generate global unique id for mqtt message.
 %%
@@ -28,7 +30,14 @@
 
 -module(emqx_guid).
 
--export([gen/0, new/0, timestamp/1, to_hexstr/1, from_hexstr/1, to_base62/1, from_base62/1]).
+-export([ gen/0
+        , new/0
+        , timestamp/1
+        , to_hexstr/1
+        , from_hexstr/1
+        , to_base62/1
+        , from_base62/1
+        ]).
 
 -define(MAX_SEQ, 16#FFFF).
 
@@ -58,14 +67,7 @@ next(NPid, Seq) ->
 bin({Ts, NPid, Seq}) ->
     <<Ts:64, NPid:48, Seq:16>>.
 
-ts() ->
-    case erlang:function_exported(erlang, system_time, 1) of
-        true -> %% R18
-            erlang:system_time(micro_seconds);
-        false ->
-            {MegaSeconds, Seconds, MicroSeconds} = os:timestamp(),
-            (MegaSeconds * 1000000 + Seconds) * 1000000 + MicroSeconds
-    end.
+ts() -> erlang:system_time(micro_seconds).
 
 %% Copied from https://github.com/okeuday/uuid.git.
 npid() ->
@@ -85,7 +87,8 @@ npid() ->
             <<PidID1:8,PidID2:8,PidID3:8,PidID4:8,% ID (Node specific, 15 bits)
               PidSR1:8,PidSR2:8,PidSR3:8,PidSR4:8,% Serial (extra uniqueness)
               PidCR1:8                            % Node Creation Count
-              >> = binary:part(PidBin, erlang:byte_size(PidBin), -9),              
+              >> = binary:part(PidBin, erlang:byte_size(PidBin), -9),
+
             {PidCR1,
              PidID1 bxor PidSR4,
              PidID2 bxor PidSR3,
@@ -139,6 +142,5 @@ to_base62(<<I:128>>) ->
     emqx_base62:encode(I).
 
 from_base62(S) ->
-    I = emqx_base62:decode(S, integer),
+    I = binary_to_integer( emqx_base62:decode(S)),
     <<I:128>>.
-

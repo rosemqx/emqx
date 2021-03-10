@@ -1,4 +1,5 @@
-%% Copyright (c) 2018 EMQ Technologies Co., Ltd. All Rights Reserved.
+%%--------------------------------------------------------------------
+%% Copyright (c) 2020 EMQ Technologies Co., Ltd. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -11,8 +12,11 @@
 %% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
+%%--------------------------------------------------------------------
 
 %% debug | info | notice | warning | error | critical | alert | emergency
+
+-compile({parse_transform, emqx_logger}).
 
 -define(DEBUG(Format), ?LOG(debug, Format, [])).
 -define(DEBUG(Format, Args), ?LOG(debug, Format, Args)).
@@ -24,7 +28,7 @@
 -define(NOTICE(Format, Args), ?LOG(notice, Format, Args)).
 
 -define(WARN(Format), ?LOG(warning, Format, [])).
--define(WARN(Format, Args), ?LOG(warning, Format, [])).
+-define(WARN(Format, Args), ?LOG(warning, Format, Args)).
 
 -define(ERROR(Format), ?LOG(error, Format, [])).
 -define(ERROR(Format, Args), ?LOG(error, Format, Args)).
@@ -35,8 +39,12 @@
 -define(ALERT(Format), ?LOG(alert, Format, [])).
 -define(ALERT(Format, Args), ?LOG(alert, Format, Args)).
 
+-define(LOG(Level, Format), ?LOG(Level, Format, [])).
+
 -define(LOG(Level, Format, Args),
         begin
-          (logger:log(Level,#{},#{report_cb => fun(_) -> {(Format), (Args)} end}))
+          (logger:log(Level,#{},#{report_cb => fun(_) -> {'$logger_header'()++(Format), (Args)} end,
+                                  mfa => {?MODULE, ?FUNCTION_NAME, ?FUNCTION_ARITY},
+                                  line => ?LINE}))
         end).
 

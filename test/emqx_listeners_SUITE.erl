@@ -1,4 +1,5 @@
-%% Copyright (c) 2018 EMQ Technologies Co., Ltd. All Rights Reserved.
+%%--------------------------------------------------------------------
+%% Copyright (c) 2020 EMQ Technologies Co., Ltd. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -11,48 +12,51 @@
 %% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
+%%--------------------------------------------------------------------
 
 -module(emqx_listeners_SUITE).
 
 -compile(export_all).
 -compile(nowarn_export_all).
 
--include_lib("eunit/include/eunit.hrl").
-
--include_lib("common_test/include/ct.hrl").
-
 -include("emqx.hrl").
 -include("emqx_mqtt.hrl").
+-include_lib("eunit/include/eunit.hrl").
 
-all() ->
-    [start_stop_listeners,
-     restart_listeners].
+all() -> emqx_ct:all(?MODULE).
 
 init_per_suite(Config) ->
-    NewConfig = generate_config(),
     application:ensure_all_started(esockd),
     application:ensure_all_started(cowboy),
-    lists:foreach(fun set_app_env/1, NewConfig),
-    Config.
+
+    ConfFile = local_path(["etc", "emqx.conf"]),
+    {ok, [Conf]} = file:consult(ConfFile),
+    lists:foreach(fun({App, Vals}) ->
+                      [application:set_env(App, Par, Val) || {Par, Val} <- Vals]
+                  end, Conf),
+    Conf.
 
 end_per_suite(_Config) ->
     application:stop(esockd),
     application:stop(cowboy).
 
-start_stop_listeners(_) ->
+t_start_stop_listeners(_) ->
     ok = emqx_listeners:start(),
+    ?assertException(error, _, emqx_listeners:start_listener({ws,{"127.0.0.1", 8083}, []})),
     ok = emqx_listeners:stop().
 
-restart_listeners(_) ->
+t_restart_listeners(_) ->
     ok = emqx_listeners:start(),
     ok = emqx_listeners:stop(),
     ok = emqx_listeners:restart(),
     ok = emqx_listeners:stop().
 
-generate_config() ->
-    Schema = cuttlefish_schema:files([local_path(["priv", "emqx.schema"])]),
-    Conf = conf_parse:file([local_path(["etc", "gen.emqx.conf"])]),
-    cuttlefish_generator:map(Schema, Conf).
+mustache_vars() ->
+    [{platform_data_dir, local_path(["data"])},
+     {platform_etc_dir,  local_path(["etc"])},
+     {platform_log_dir,  local_path(["log"])},
+     {platform_plugins_dir,  local_path(["plugins"])}
+    ].
 
 set_app_env({App, Lists}) ->
     lists:foreach(fun({acl_file, _Var}) ->
@@ -75,3 +79,4 @@ get_base_dir(Module) ->
 
 get_base_dir() ->
     get_base_dir(?MODULE).
+    

@@ -1,4 +1,5 @@
-%% Copyright (c) 2018 EMQ Technologies Co., Ltd. All Rights Reserved.
+%%--------------------------------------------------------------------
+%% Copyright (c) 2020 EMQ Technologies Co., Ltd. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -11,6 +12,7 @@
 %% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
+%%--------------------------------------------------------------------
 
 -module(emqx_mod_subscription).
 
@@ -19,25 +21,37 @@
 -include_lib("emqx.hrl").
 -include_lib("emqx_mqtt.hrl").
 
--export([load/1, on_session_created/3, unload/1]).
+%% emqx_gen_mod callbacks
+-export([ load/1
+        , unload/1
+        , description/0
+        ]).
+
+%% APIs
+-export([on_client_connected/3]).
 
 %%--------------------------------------------------------------------
 %% Load/Unload Hook
 %%--------------------------------------------------------------------
 
 load(Topics) ->
-    emqx_hooks:add('session.created', fun ?MODULE:on_session_created/3, [Topics]).
+    emqx_hooks:add('client.connected', {?MODULE, on_client_connected, [Topics]}).
 
-on_session_created(#{client_id := ClientId}, SessAttrs, Topics) ->
-    Username = proplists:get_value(username, SessAttrs),
+on_client_connected(#{clientid := ClientId, username := Username}, _ConnInfo = #{proto_ver := ProtoVer}, Topics) ->
     Replace = fun(Topic) ->
                       rep(<<"%u">>, Username, rep(<<"%c">>, ClientId, Topic))
               end,
-    emqx_session:subscribe(self(), [{Replace(Topic), #{qos => QoS}} || {Topic, QoS} <- Topics]).
+    TopicFilters =  case ProtoVer of
+        ?MQTT_PROTO_V5 -> [{Replace(Topic), SubOpts} || {Topic, SubOpts} <- Topics];
+        _ -> [{Replace(Topic), #{qos => Qos}} || {Topic, #{qos := Qos}} <- Topics]
+    end,
+    self() ! {subscribe, TopicFilters}.
 
 unload(_) ->
-    emqx_hooks:del('session.created', fun ?MODULE:on_session_created/3).
+    emqx_hooks:del('client.connected', {?MODULE, on_client_connected}).
 
+description() ->
+    "EMQ X Subscription Module".
 %%--------------------------------------------------------------------
 %% Internal functions
 %%--------------------------------------------------------------------

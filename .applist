@@ -1,0 +1,1 @@
+[kernel,stdlib,inets,mnesia,sasl,asn1,crypto,gproc,jsone,replayq,cowlib,public_key,ekka,ssl,ranch,esockd,gen_rpc,ssl_verify_fun,cowboy,kvs,minirest,emqx]

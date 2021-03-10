@@ -1,4 +1,5 @@
-%% Copyright (c) 2018 EMQ Technologies Co., Ltd. All Rights Reserved.
+%%--------------------------------------------------------------------
+%% Copyright (c) 2020 EMQ Technologies Co., Ltd. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -11,6 +12,7 @@
 %% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
+%%--------------------------------------------------------------------
 
 -module(emqx_router_helper).
 
@@ -18,6 +20,9 @@
 
 -include("emqx.hrl").
 -include("logger.hrl").
+-include("types.hrl").
+
+-logger_header("[Router Helper]").
 
 %% Mnesia bootstrap
 -export([mnesia/1]).
@@ -26,14 +31,21 @@
 -copy_mnesia({mnesia, [copy]}).
 
 %% API
--export([start_link/0, monitor/1]).
-
-%% gen_server callbacks
--export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2,
-         code_change/3]).
+-export([ start_link/0
+        , monitor/1
+        ]).
 
 %% Internal export
 -export([stats_fun/0]).
+
+%% gen_server callbacks
+-export([ init/1
+        , handle_call/3
+        , handle_cast/2
+        , handle_info/2
+        , terminate/2
+        , code_change/3
+        ]).
 
 -record(routing_node, {name, const = unused}).
 
@@ -41,9 +53,11 @@
 -define(ROUTING_NODE, emqx_routing_node).
 -define(LOCK, {?MODULE, cleanup_routes}).
 
-%%------------------------------------------------------------------------------
+-dialyzer({nowarn_function, [cleanup_routes/1]}).
+
+%%--------------------------------------------------------------------
 %% Mnesia bootstrap
-%%------------------------------------------------------------------------------
+%%--------------------------------------------------------------------
 
 mnesia(boot) ->
     ok = ekka_mnesia:create_table(?ROUTING_NODE, [
@@ -56,12 +70,12 @@ mnesia(boot) ->
 mnesia(copy) ->
     ok = ekka_mnesia:copy_table(?ROUTING_NODE).
 
-%%------------------------------------------------------------------------------
+%%--------------------------------------------------------------------
 %% API
-%%------------------------------------------------------------------------------
+%%--------------------------------------------------------------------
 
 %% @doc Starts the router helper
--spec(start_link() ->  emqx_types:startlink_ret()).
+-spec(start_link() -> startlink_ret()).
 start_link() ->
     gen_server:start_link({local, ?MODULE}, ?MODULE, [], []).
 
@@ -76,9 +90,9 @@ monitor(Node) when is_atom(Node) ->
         false -> mnesia:dirty_write(?ROUTING_NODE, #routing_node{name = Node})
     end.
 
-%%------------------------------------------------------------------------------
+%%--------------------------------------------------------------------
 %% gen_server callbacks
-%%------------------------------------------------------------------------------
+%%--------------------------------------------------------------------
 
 init([]) ->
     ok = ekka:monitor(membership),
@@ -95,11 +109,11 @@ init([]) ->
     {ok, #{nodes => Nodes}, hibernate}.
 
 handle_call(Req, _From, State) ->
-    ?ERROR("[RouterHelper] unexpected call: ~p", [Req]),
+    ?LOG(error, "Unexpected call: ~p", [Req]),
     {reply, ignored, State}.
 
 handle_cast(Msg, State) ->
-    ?ERROR("[RouterHelper] unexpected cast: ~p", [Msg]),
+    ?LOG(error, "Unexpected cast: ~p", [Msg]),
     {noreply, State}.
 
 handle_info({mnesia_table_event, {write, {?ROUTING_NODE, Node, _}, _}}, State = #{nodes := Nodes}) ->
@@ -115,7 +129,7 @@ handle_info({mnesia_table_event, {delete, {?ROUTING_NODE, _Node}, _}}, State) ->
     {noreply, State};
 
 handle_info({mnesia_table_event, Event}, State) ->
-    ?ERROR("[RouterHelper] unexpected mnesia_table_event: ~p", [Event]),
+    ?LOG(error, "Unexpected mnesia_table_event: ~p", [Event]),
     {noreply, State};
 
 handle_info({nodedown, Node}, State = #{nodes := Nodes}) ->
@@ -133,7 +147,7 @@ handle_info({membership, _Event}, State) ->
     {noreply, State};
 
 handle_info(Info, State) ->
-    ?ERROR("[RouteHelper] unexpected info: ~p", [Info]),
+    ?LOG(error, "Unexpected info: ~p", [Info]),
     {noreply, State}.
 
 terminate(_Reason, _State) ->
@@ -144,16 +158,16 @@ terminate(_Reason, _State) ->
 code_change(_OldVsn, State, _Extra) ->
     {ok, State}.
 
-%%------------------------------------------------------------------------------
+%%--------------------------------------------------------------------
 %% Internal functions
-%%------------------------------------------------------------------------------
+%%--------------------------------------------------------------------
 
 stats_fun() ->
     case ets:info(?ROUTE, size) of
         undefined -> ok;
         Size ->
-            emqx_stats:setstat('routes/count', 'routes/max', Size),
-            emqx_stats:setstat('topics/count', 'topics/max', Size)
+            emqx_stats:setstat('routes.count', 'routes.max', Size),
+            emqx_stats:setstat('topics.count', 'topics.max', Size)
     end.
 
 cleanup_routes(Node) ->

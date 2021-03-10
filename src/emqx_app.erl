@@ -1,4 +1,5 @@
-%% Copyright (c) 2018 EMQ Technologies Co., Ltd. All Rights Reserved.
+%%--------------------------------------------------------------------
+%% Copyright (c) 2020 EMQ Technologies Co., Ltd. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -11,41 +12,47 @@
 %% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
+%%--------------------------------------------------------------------
 
 -module(emqx_app).
 
 -behaviour(application).
 
--export([start/2, stop/1]).
-
--define(APP, emqx).
+-export([ start/2
+        , stop/1
+        ]).
 
 %%--------------------------------------------------------------------
 %% Application callbacks
 %%--------------------------------------------------------------------
 
 start(_Type, _Args) ->
-    %% We'd like to configure the primary logger level here, rather than set the
-    %%   kernel config `logger_level` before starting the erlang vm.
-    %% This is because the latter approach an annoying debug msg will be printed out:
-    %%   "[debug] got_unexpected_message {'EXIT',<0.1198.0>,normal}"
-    logger:set_primary_config(level, application:get_env(emqx, primary_log_level, error)),
-
+    application:start(os_mon),
     print_banner(),
-    ekka:start(),
+    ok = ekka:start(),
     {ok, Sup} = emqx_sup:start_link(),
-    emqx_modules:load(),
-    emqx_plugins:init(),
+    ok = emqx_modules:load(),
+    ok = emqx_plugins:init(),
     emqx_plugins:load(),
-    emqx_listeners:start(),
+    emqx_boot:is_enabled(listeners)
+      andalso (ok = emqx_listeners:start()),
     start_autocluster(),
     register(emqx, self()),
+    %case emqx_alarm_handler:load() of
+    %    ok -> io:format("swapped handler ~n");
+    %    {error,Error} -> io:format("alarm handler ~p~n", [Error])
+    %end,
     print_vsn(),
+    emqx_mgmt_auth:add_default_app(),
+    emqx_mgmt_cli:load(),
     {ok, Sup}.
 
 -spec(stop(State :: term()) -> term()).
 stop(_State) ->
-    emqx_listeners:stop(),
+    ekka_mnesia:ensure_stopped(),
+    %emqx_alarm_handler:unload(),
+    emqx_boot:is_enabled(listeners)
+      andalso emqx_listeners:stop(),
     emqx_modules:unload().
 
 %%--------------------------------------------------------------------
@@ -53,7 +60,7 @@ stop(_State) ->
 %%--------------------------------------------------------------------
 
 print_banner() ->
-    io:format("Starting ~s on node ~s~n", [?APP, node()]).
+    io:format("Starting ~s on node ~s~n", [emqx, node()]).
 
 print_vsn() ->
     {ok, Descr} = application:get_key(description),
@@ -67,5 +74,5 @@ print_vsn() ->
 start_autocluster() ->
     ekka:callback(prepare, fun emqx:shutdown/1),
     ekka:callback(reboot,  fun emqx:reboot/0),
-    ekka:autocluster(?APP).
+    ekka:autocluster(emqx).
 

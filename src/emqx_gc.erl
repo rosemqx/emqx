@@ -1,4 +1,5 @@
-%% Copyright (c) 2018 EMQ Technologies Co., Ltd. All Rights Reserved.
+%%--------------------------------------------------------------------
+%% Copyright (c) 2020 EMQ Technologies Co., Ltd. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -11,17 +12,31 @@
 %% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
+%%--------------------------------------------------------------------
 
-%% @doc This module manages an opaque collection of statistics data used to
+%%--------------------------------------------------------------------
+%% @doc
+%% This module manages an opaque collection of statistics data used to
 %% force garbage collection on `self()' process when hitting thresholds.
 %% Namely:
 %% (1) Total number of messages passed through
 %% (2) Total data volume passed through
 %% @end
+%%--------------------------------------------------------------------
 
 -module(emqx_gc).
 
--export([init/1, run/3, info/1, reset/1]).
+-include("emqx.hrl").
+-include("types.hrl").
+
+-export([ init/1
+        , run/2
+        , run/3
+        , info/1
+        , reset/1
+        ]).
+
+-export_type([opts/0, gc_state/0]).
 
 -type(opts() :: #{count => integer(),
                   bytes => integer()}).
@@ -29,54 +44,55 @@
 -type(st() :: #{cnt => {integer(), integer()},
                 oct => {integer(), integer()}}).
 
--type(gc_state() :: {?MODULE, st()}).
+-opaque(gc_state() :: {gc_state, st()}).
+
+-define(GCS(St), {gc_state, St}).
 
 -define(disabled, disabled).
 -define(ENABLED(X), (is_integer(X) andalso X > 0)).
 
 %% @doc Initialize force GC state.
--spec(init(opts() | false) -> gc_state() | undefined).
+-spec(init(opts()) -> gc_state()).
 init(#{count := Count, bytes := Bytes}) ->
     Cnt = [{cnt, {Count, Count}} || ?ENABLED(Count)],
     Oct = [{oct, {Bytes, Bytes}} || ?ENABLED(Bytes)],
-    {?MODULE, maps:from_list(Cnt ++ Oct)};
-init(false) -> undefined.
+    ?GCS(maps:from_list(Cnt ++ Oct)).
 
 %% @doc Try to run GC based on reduntions of count or bytes.
--spec(run(pos_integer(), pos_integer(), gc_state()) -> {boolean(), gc_state()}).
-run(Cnt, Oct, {?MODULE, St}) ->
-    {Res, St1} = run([{cnt, Cnt}, {oct, Oct}], St),
-    {Res, {?MODULE, St1}};
-run(_Cnt, _Oct, undefined) ->
-    {false, undefined}.
+-spec(run(#{cnt := pos_integer(), oct := pos_integer()}, gc_state())
+      -> {boolean(), gc_state()}).
+run(#{cnt := Cnt, oct := Oct}, GcSt) ->
+    run(Cnt, Oct, GcSt).
 
-run([], St) ->
+-spec(run(pos_integer(), pos_integer(), gc_state())
+      -> {boolean(), gc_state()}).
+run(Cnt, Oct, ?GCS(St)) ->
+    {Res, St1} = do_run([{cnt, Cnt}, {oct, Oct}], St),
+    {Res, ?GCS(St1)}.
+
+do_run([], St) ->
     {false, St};
-run([{K, N}|T], St) ->
+do_run([{K, N}|T], St) ->
     case dec(K, N, St) of
         {true, St1} ->
-            {true, do_gc(St1)};
+            erlang:garbage_collect(),
+            {true, do_reset(St1)};
         {false, St1} ->
-            run(T, St1)
+            do_run(T, St1)
     end.
 
 %% @doc Info of GC state.
--spec(info(gc_state()) -> map() | undefined).
-info({?MODULE, St}) ->
-    St;
-info(undefined) ->
-    undefined.
+-spec(info(maybe(gc_state())) -> maybe(map())).
+info(?GCS(St)) -> St.
 
 %% @doc Reset counters to zero.
--spec(reset(gc_state()) -> gc_state()).
-reset({?MODULE, St}) ->
-    {?MODULE, do_reset(St)};
-reset(undefined) ->
-    undefined.
+-spec(reset(maybe(gc_state())) -> gc_state()).
+reset(?GCS(St)) ->
+    ?GCS(do_reset(St)).
 
-%%------------------------------------------------------------------------------
+%%--------------------------------------------------------------------
 %% Internal functions
-%%------------------------------------------------------------------------------
+%%--------------------------------------------------------------------
 
 -spec(dec(cnt | oct, pos_integer(), st()) -> {boolean(), st()}).
 dec(Key, Num, St) ->
@@ -88,10 +104,6 @@ dec(Key, Num, St) ->
         _ ->
             {true, St}
     end.
-
-do_gc(St) ->
-    true = erlang:garbage_collect(),
-    do_reset(St).
 
 do_reset(St) ->
     do_reset(cnt, do_reset(oct, St)).

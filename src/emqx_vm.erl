@@ -1,4 +1,5 @@
-%% Copyright (c) 2018 EMQ Technologies Co., Ltd. All Rights Reserved.
+%%--------------------------------------------------------------------
+%% Copyright (c) 2020 EMQ Technologies Co., Ltd. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -11,20 +12,49 @@
 %% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
+%%--------------------------------------------------------------------
 
 -module(emqx_vm).
 
--export([schedulers/0]).
--export([microsecs/0]).
--export([loads/0, get_system_info/0, get_system_info/1,  mem_info/0, scheduler_usage/1]).
--export([get_memory/0]).
--export([get_process_list/0, get_process_info/0, get_process_info/1,
-         get_process_gc/0, get_process_gc/1,
-         get_process_group_leader_info/1,
-         get_process_limit/0]).
--export([get_ets_list/0, get_ets_info/0, get_ets_info/1,
-         get_ets_object/0, get_ets_object/1]).
--export([get_port_types/0, get_port_info/0, get_port_info/1]).
+-export([ schedulers/0
+        , scheduler_usage/1
+        , system_info_keys/0
+        , get_system_info/0
+        , get_system_info/1
+        , get_memory/0
+        , mem_info/0
+        , loads/0
+        ]).
+
+-export([ process_info_keys/0
+        , get_process_info/0
+        , get_process_info/1
+        , process_gc_info_keys/0
+        , get_process_gc_info/0
+        , get_process_gc_info/1
+        , get_process_group_leader_info/1
+        , get_process_limit/0
+        ]).
+
+-export([ get_ets_list/0
+        , get_ets_info/0
+        , get_ets_info/1
+        , get_ets_object/0
+        , get_ets_object/1
+        ]).
+
+-export([ get_port_types/0
+        , get_port_info/0
+        , get_port_info/1
+        ]).
+
+-export([cpu_util/0]).
+
+-ifdef(TEST).
+-compile(export_all).
+-compile(nowarn_export_all).
+-endif.
+
 
 -define(PROCESS_LIST, [initial_call,
                        reductions,
@@ -32,7 +62,8 @@
                        message_queue_len,
                        current_function]).
 
--define(PROCESS_INFO, [initial_call,
+-define(PROCESS_INFO_KEYS, [
+                       initial_call,
                        current_function,
                        registered_name,
                        status,
@@ -49,14 +80,16 @@
                        sequential_trace_token,
                        error_handler]).
 
--define(PROCESS_GC, [memory,
+-define(PROCESS_GC_KEYS, [
+                     memory,
                      total_heap_size,
                      heap_size,
                      stack_size,
                      min_heap_size]).
                      %fullsweep_after]).
 
--define(SYSTEM_INFO, [allocated_areas,
+-define(SYSTEM_INFO_KEYS, [
+                      allocated_areas,
                       allocator,
                       alloc_util_allocators,
                       build_type,
@@ -128,28 +161,25 @@
                       send_timeout,
                       send_timeout_close,
                       sndbuf,
-                      tos]).
+                      tos
+                     ]).
 
 schedulers() ->
     erlang:system_info(schedulers).
 
-microsecs() ->
-    {Mega, Sec, Micro} = os:timestamp(),
-    (Mega * 1000000 + Sec) * 1000000 + Micro.
-
 loads() ->
-    [{load1,  ftos(cpu_sup:avg1()/256)},
-     {load5,  ftos(cpu_sup:avg5()/256)},
-     {load15, ftos(cpu_sup:avg15()/256)}].
+    [{load1,  ftos(avg1()/256)},
+     {load5,  ftos(avg5()/256)},
+     {load15, ftos(avg15()/256)}
+    ].
+
+system_info_keys() -> ?SYSTEM_INFO_KEYS.
 
 get_system_info() ->
-    [{Key, format_system_info(Key, get_system_info(Key))} || Key <- ?SYSTEM_INFO].
+    [{Key, format_system_info(Key, get_system_info(Key))} || Key <- ?SYSTEM_INFO_KEYS].
 
 get_system_info(Key) ->
-    try erlang:system_info(Key) catch
-    error:badarg->undefined
-    end.
-%% conversion functions for erlang:system_info(Key)
+    try erlang:system_info(Key) catch error:badarg-> undefined end.
 
 format_system_info(allocated_areas, List) ->
     [convert_allocated_areas(Value) || Value <- List];
@@ -184,7 +214,9 @@ convert_allocated_areas({Key, Value}) ->
 mem_info() ->
     Dataset = case os:type() of {unix, darwin} ->
         % quick stub for macos
-        [ {total_memory, os:cmd("sysctl -n hw.memsize")}
+
+        [ {total_memory, list_to_integer(hd(string:lexemes(os:cmd("sysctl -n hw.memsize"), [$\n,$\r]))) }
+
         , {free_memory, 0} % need free memory util with consistent results
         %, {system_total_memory,}
         %, {largest_free,}
@@ -219,37 +251,39 @@ get_memory()->
     [{Key, get_memory(Key)} || Key <- [used, allocated, unused, usage]] ++ erlang:memory().
 
 % very quick replacement of system_info() with instruments.
+
+% {driver_alloc,32768,0,3032,17,false,{1,0,0,0,1,0,0,0,0,0,0,0,0,0}
 get_memory(used) ->
     lists:foldl(fun({_Type,_InPool,_Total,_Unscanned,Alls,_Free}, AccIn0) ->
-                         AccIn0 + lists:foldl(fun({_,_Count,Size},AccIn1) -> Size+AccIn1;
-                   ({_Type,Total,_,_Unscanned,Alls,_InPool,_Free}, AccIn0) ->
-                         AccIn0 + Total
-    end, 0, Alls) end, 0, case instrument:carriers() of  {ok, {_, Crs}} -> Crs; {error,_} -> [] end);
+    			AccIn0 + lists:foldl(fun({_,_Count,Size},AccIn1) -> Size+AccIn1 end, 0, Alls);
+		    ({_Type,_Total,_Unscanned,A,_C,_InPool,_Free}, AccIn0) -> AccIn0 + A end,
+        0, case instrument:carriers() of  {ok, {_, Crs}} -> Crs; {error,_} -> [] end);
 get_memory(allocated) ->
     lists:foldl(fun({_Type,_InPool,Total,_Unscanned,_Alls,_Free}, AccIn0) -> AccIn0 + Total;
-                   ({_Type,Total,_,_Unscanned,Alls,_InPool,_Free}, AccIn0) -> AccIn0 + Total end,
+		   ({_Type,Total,_Unscanned,_A,_C,_InPool,_Free}, AccIn0) -> AccIn0 + Total end,
+
         0, case instrument:carriers() of  {ok, {_S, C1}} -> C1; {error,_} -> [] end);
 get_memory(unused) -> get_memory(allocated) - get_memory(used);
 get_memory(usage) -> get_memory(used) / get_memory(allocated).
 
-get_process_list()->
-    [get_process_list(Pid) || Pid <- processes()].
-
-get_process_list(Pid) when is_pid(Pid) ->
-    [{pid, Pid} | [process_info(Pid, Key) || Key <- ?PROCESS_LIST]].
+process_info_keys() ->
+    ?PROCESS_INFO_KEYS.
 
 get_process_info() ->
-    [get_process_info(Pid) || Pid <- processes()].
+    get_process_info(self()).
 get_process_info(Pid) when is_pid(Pid) ->
-    process_info(Pid, ?PROCESS_INFO).
+    process_info(Pid, ?PROCESS_INFO_KEYS).
 
-get_process_gc() ->
-    [get_process_gc(Pid) || Pid <- processes()].
-get_process_gc(Pid) when is_pid(Pid) ->
-    process_info(Pid, ?PROCESS_GC).
+process_gc_info_keys() ->
+    ?PROCESS_GC_KEYS.
+
+get_process_gc_info() ->
+    get_process_gc_info(self()).
+get_process_gc_info(Pid) when is_pid(Pid) ->
+    process_info(Pid, ?PROCESS_GC_KEYS).
 
 get_process_group_leader_info(LeaderPid) when is_pid(LeaderPid) ->
-    [{Key, Value}|| {Key, Value} <- process_info(LeaderPid), lists:member(Key, ?PROCESS_INFO)].
+    [{Key, Value}|| {Key, Value} <- process_info(LeaderPid), lists:member(Key, ?PROCESS_INFO_KEYS)].
 
 get_process_limit() ->
     erlang:system_info(process_limit).
@@ -311,34 +345,39 @@ port_info(PortTerm, memory_used) ->
 port_info(PortTerm, specific) ->
     Port = transform_port(PortTerm),
     Props = case erlang:port_info(Port, name) of
-        {_, Type} when Type =:= "udp_inet";
+                {_, Type} when Type =:= "udp_inet";
                        Type =:= "tcp_inet";
                        Type =:= "sctp_inet" ->
-                    case catch inet:getstat(Port) of
+                    try inet:getstat(Port) of
                         {ok, Stats} -> [{statistics, Stats}];
-                        _           -> []
-                    end ++
-                    case catch inet:peername(Port) of
-                        {ok, Peer} -> [{peername, Peer}];
                         {error, _} -> []
+                    catch
+                        _Error:_Reason -> []
                     end ++
-                    case catch inet:sockname(Port) of
+                    try inet:peername(Port) of
+                        {ok, Peer} -> [{peername, Peer}];
+                        _ -> []
+                    catch
+                        _Error:_Reason -> []
+                    end ++
+                    try inet:sockname(Port) of
                         {ok, Local} -> [{sockname, Local}];
                         {error, _}  -> []
+                    catch
+                        _Error:_Reason -> []
                     end ++
-                    case catch inet:getopts(Port, ?SOCKET_OPTS ) of
+                    try inet:getopts(Port, ?SOCKET_OPTS ) of
                         {ok, Opts} -> [{options, Opts}];
                         {error, _} -> []
+                    catch
+                        _Error:_Reason -> []
                     end;
-    {_, "efile"} ->
-        [];
-    _ ->
-        []
-    end,
+                {_, "efile"} ->
+                    [];
+                _ ->
+                    []
+            end,
     {specific, Props};
-port_info(PortTerm, Keys) when is_list(Keys) ->
-    Port = transform_port(PortTerm),
-    [erlang:port_info(Port, Key) || Key <- Keys];
 port_info(PortTerm, Key) when is_atom(Key) ->
     Port = transform_port(PortTerm),
     erlang:port_info(Port, Key).
@@ -370,11 +409,33 @@ ports_type_count(Types) ->
 
 mapping(Entries) ->
     mapping(Entries, []).
-mapping([], Acc) ->
-    Acc;
+mapping([], Acc) -> Acc;
 mapping([{owner, V}|Entries], Acc) when is_pid(V) ->
     OwnerInfo = process_info(V),
     Owner = proplists:get_value(registered_name, OwnerInfo, undefined),
     mapping(Entries, [{owner, Owner}|Acc]);
 mapping([{Key, Value}|Entries], Acc) ->
     mapping(Entries, [{Key, Value}|Acc]).
+
+avg1() ->
+    compat_windows(fun cpu_sup:avg1/0).
+
+avg5() ->
+    compat_windows(fun cpu_sup:avg5/0).
+
+avg15() ->
+    compat_windows(fun cpu_sup:avg15/0).
+
+cpu_util() ->
+    compat_windows(fun cpu_sup:util/0).
+
+compat_windows(Fun) ->
+    case os:type() of
+        {win32, nt} -> 0;
+        _Type ->
+            case catch Fun() of
+                Val when is_number(Val) -> Val;
+                _Error -> 0
+            end
+    end.
+

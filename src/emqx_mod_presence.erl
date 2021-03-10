@@ -1,4 +1,5 @@
-%% Copyright (c) 2018 EMQ Technologies Co., Ltd. All Rights Reserved.
+%%--------------------------------------------------------------------
+%% Copyright (c) 2020 EMQ Technologies Co., Ltd. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -11,54 +12,102 @@
 %% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
+%%--------------------------------------------------------------------
 
 -module(emqx_mod_presence).
 
 -behaviour(emqx_gen_mod).
 
 -include("emqx.hrl").
+-include("logger.hrl").
 
--export([load/1, unload/1]).
+-logger_header("[Presence]").
 
--export([on_client_connected/4, on_client_disconnected/3]).
+%% emqx_gen_mod callbacks
+-export([ load/1
+        , unload/1
+        , description/0
+        ]).
 
--define(ATTR_KEYS, [clean_start, proto_ver, proto_name, keepalive]).
+-export([ on_client_connected/3
+        , on_client_disconnected/4
+        ]).
+
+-ifdef(TEST).
+-export([reason/1]).
+-endif.
 
 load(Env) ->
-    emqx_hooks:add('client.connected',    fun ?MODULE:on_client_connected/4, [Env]),
-    emqx_hooks:add('client.disconnected', fun ?MODULE:on_client_disconnected/3, [Env]).
-
-on_client_connected(#{client_id := ClientId,
-                      username  := Username,
-                      peername  := {IpAddr, _}}, ConnAck, ConnAttrs, Env) ->
-    Attrs = lists:filter(fun({K, _}) -> lists:member(K, ?ATTR_KEYS) end, ConnAttrs),
-    case emqx_json:safe_encode([{clientid, ClientId},
-                                {username, Username},
-                                {ipaddress, iolist_to_binary(esockd_net:ntoa(IpAddr))},
-                                {connack, ConnAck},
-                                {ts, os:system_time(second)} | Attrs]) of
-        {ok, Payload} ->
-            emqx:publish(message(qos(Env), topic(connected, ClientId), Payload));
-        {error, Reason} ->
-            emqx_logger:error("[Presence Module] Json error: ~p", [Reason])
-    end.
-
-on_client_disconnected(#{client_id := ClientId, username := Username}, Reason, Env) ->
-    case emqx_json:safe_encode([{clientid, ClientId},
-                                {username, Username},
-                                {reason, reason(Reason)},
-                                {ts, os:system_time(second)}]) of
-        {ok, Payload} ->
-            emqx_broker:publish(message(qos(Env), topic(disconnected, ClientId), Payload));
-        {error, Reason} ->
-            emqx_logger:error("[Presence Module] Json error: ~p", [Reason])
-    end.
+    emqx_hooks:add('client.connected',    {?MODULE, on_client_connected, [Env]}),
+    emqx_hooks:add('client.disconnected', {?MODULE, on_client_disconnected, [Env]}).
 
 unload(_Env) ->
-    emqx_hooks:del('client.connected',    fun ?MODULE:on_client_connected/4),
-    emqx_hooks:del('client.disconnected', fun ?MODULE:on_client_disconnected/3).
+    emqx_hooks:del('client.connected',    {?MODULE, on_client_connected}),
+    emqx_hooks:del('client.disconnected', {?MODULE, on_client_disconnected}).
 
-message(QoS, Topic, Payload) ->
+description() ->
+    "EMQ X Presence Module".
+%%--------------------------------------------------------------------
+%% Callbacks
+%%--------------------------------------------------------------------
+
+on_client_connected(ClientInfo = #{clientid := ClientId}, ConnInfo, Env) ->
+    Presence = connected_presence(ClientInfo, ConnInfo),
+    case emqx_json:safe_encode(Presence) of
+        {ok, Payload} ->
+            emqx_broker:safe_publish(
+              make_msg(qos(Env), topic(connected, ClientId), Payload));
+        {error, _Reason} ->
+            ?LOG(error, "Failed to encode 'connected' presence: ~p", [Presence])
+    end.
+
+on_client_disconnected(_ClientInfo = #{clientid := ClientId, username := Username},
+                       Reason, _ConnInfo = #{disconnected_at := DisconnectedAt}, Env) ->
+    Presence = #{clientid => ClientId,
+                 username => Username,
+                 reason => reason(Reason),
+                 disconnected_at => DisconnectedAt,
+                 ts => erlang:system_time(millisecond)
+                },
+    case emqx_json:safe_encode(Presence) of
+        {ok, Payload} ->
+            emqx_broker:safe_publish(
+              make_msg(qos(Env), topic(disconnected, ClientId), Payload));
+        {error, _Reason} ->
+            ?LOG(error, "Failed to encode 'disconnected' presence: ~p", [Presence])
+    end.
+
+%%--------------------------------------------------------------------
+%% Helper functions
+%%--------------------------------------------------------------------
+
+connected_presence(#{peerhost := PeerHost,
+                     sockport := SockPort,
+                     clientid := ClientId,
+                     username := Username
+                    },
+                   #{clean_start := CleanStart,
+                     proto_name := ProtoName,
+                     proto_ver := ProtoVer,
+                     keepalive := Keepalive,
+                     connected_at := ConnectedAt,
+                     expiry_interval := ExpiryInterval
+                    }) ->
+    #{clientid => ClientId,
+      username => Username,
+      ipaddress => ntoa(PeerHost),
+      sockport => SockPort,
+      proto_name => ProtoName,
+      proto_ver => ProtoVer,
+      keepalive => Keepalive,
+      connack => 0, %% Deprecated?
+      clean_start => CleanStart,
+      expiry_interval => ExpiryInterval,
+      connected_at => ConnectedAt,
+      ts => erlang:system_time(millisecond)
+     }.
+
+make_msg(QoS, Topic, Payload) ->
     emqx_message:set_flag(
       sys, emqx_message:make(
              ?MODULE, QoS, Topic, iolist_to_binary(Payload))).
@@ -70,7 +119,12 @@ topic(disconnected, ClientId) ->
 
 qos(Env) -> proplists:get_value(qos, Env, 0).
 
+-compile({inline, [reason/1]}).
 reason(Reason) when is_atom(Reason) -> Reason;
+reason({shutdown, Reason}) when is_atom(Reason) -> Reason;
 reason({Error, _}) when is_atom(Error) -> Error;
 reason(_) -> internal_error.
+
+-compile({inline, [ntoa/1]}).
+ntoa(IpAddr) -> iolist_to_binary(inet:ntoa(IpAddr)).
 

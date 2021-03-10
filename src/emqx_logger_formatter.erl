@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2017-2018. All Rights Reserved.
+%% Copyright Ericsson AB 2013-2019. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -24,6 +24,7 @@
 -module(emqx_logger_formatter).
 
 -export([format/2]).
+
 -export([check_config/1]).
 
 -define(DEFAULT_FORMAT_TEMPLATE_SINGLE, [time," ",level,": ",msg,"\n"]).
@@ -33,18 +34,22 @@
 -define(IS_STRING(String),
         (is_list(String) orelse is_binary(String))).
 
-%%%-----------------------------------------------------------------
-%%% Types
--type config() :: #{chars_limit     => pos_integer() | unlimited,
-                    depth           => pos_integer() | unlimited,
-                    max_size        => pos_integer() | unlimited,
-                    report_cb       => logger:report_cb(),
-                    quit        => template()}.
--type template() :: [metakey() | {metakey(),template(),template()} | string()].
--type metakey() :: atom() | [atom()].
+%%--------------------------------------------------------------------
+%% Types
 
-%%%-----------------------------------------------------------------
-%%% API
+-type(config() :: #{chars_limit => pos_integer() | unlimited,
+                    depth       => pos_integer() | unlimited,
+                    max_size    => pos_integer() | unlimited,
+                    report_cb   => logger:report_cb(),
+                    quit        => template()}).
+
+-type(template() :: [metakey() | {metakey(),template(),template()} | string()]).
+
+-type(metakey() :: atom() | [atom()]).
+
+%%--------------------------------------------------------------------
+%% API
+
 -spec format(LogEvent,Config) -> unicode:chardata() when
       LogEvent :: logger:log_event(),
       Config :: config().
@@ -74,7 +79,7 @@ format(#{level:=Level,msg:=Msg0,meta:=Meta},Config0)
                                 end,
                             Config#{chars_limit=>Size}
                     end,
-                string:trim(format_msg(Msg0,Meta,Config1));
+                format_msg(Msg0,Meta,Config1);
            true ->
                 ""
         end,
@@ -133,7 +138,7 @@ to_string(X,_) when is_list(X) ->
         _ -> io_lib:format(?FormatP,[X])
     end;
 to_string(X,_) ->
-    io_lib:format("~s",[X]).
+    io_lib:format(?FormatP,[X]).
 
 printable_list([]) ->
     false;
@@ -189,14 +194,14 @@ do_format_msg({Format0,Args},Depth,Opts) ->
         Format = reformat(Format1, Depth),
         io_lib:build_text(Format,Opts)
     catch C:R:S ->
-            FormatError = "FORMAT ERROR: ~0tp - ~0tp",
-            case Format0 of
-                FormatError ->
-                    %% already been here - avoid failing cyclically
-                    erlang:raise(C,R,S);
-                _ ->
-                    format_msg({FormatError,[Format0,Args]},Depth,Opts)
-            end
+        FormatError = "FORMAT ERROR: ~0tp - ~0tp",
+        case Format0 of
+            FormatError ->
+                %% already been here - avoid failing cyclically
+                erlang:raise(C,R,S);
+            _ ->
+                do_format_msg({FormatError,[Format0,Args]},Depth,Opts)
+        end
     end.
 
 reformat(Format,unlimited) ->
@@ -248,9 +253,7 @@ format_time(SysTime,#{})
     {Date, _Time = {H, Mi, S}} = calendar:system_time_to_local_time(SysTime, microsecond),
     format_time({Date, {H, Mi, S, Ms}}).
 format_time({{Y, M, D}, {H, Mi, S, Ms}}) ->
-    io_lib:format("~b-~2..0b-~2..0b ~2..0b:~2..0b:~2..0b.~3..0b", [Y, M, D, H, Mi, S, Ms]);
-format_time({{Y, M, D}, {H, Mi, S}}) ->
-    io_lib:format("~b-~2..0b-~2..0b ~2..0b:~2..0b:~2..0b", [Y, M, D, H, Mi, S]).
+    io_lib:format("~b-~2..0b-~2..0b ~2..0b:~2..0b:~2..0b.~3..0b", [Y, M, D, H, Mi, S, Ms]).
 
 format_mfa({M,F,A},_) when is_atom(M), is_atom(F), is_integer(A) ->
     atom_to_list(M)++":"++atom_to_list(F)++"/"++integer_to_list(A);

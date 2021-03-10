@@ -1,4 +1,5 @@
-%% Copyright (c) 2018 EMQ Technologies Co., Ltd. All Rights Reserved.
+%%--------------------------------------------------------------------
+%% Copyright (c) 2020 EMQ Technologies Co., Ltd. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -11,17 +12,20 @@
 %% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
+%%--------------------------------------------------------------------
 
 -ifndef(EMQ_X_HRL).
 -define(EMQ_X_HRL, true).
 
 %%--------------------------------------------------------------------
-%% Banner
+%% Common
 %%--------------------------------------------------------------------
 
--define(COPYRIGHT, "Copyright (c) 2018 EMQ Technologies Co., Ltd").
+-define(Otherwise, true).
 
--define(LICENSE_MESSAGE, "Licensed under the Apache License, Version 2.0").
+%%--------------------------------------------------------------------
+%% Banner
+%%--------------------------------------------------------------------
 
 -define(PROTOCOL_VERSION, "MQTT/5.0").
 
@@ -47,8 +51,6 @@
 %% Message and Delivery
 %%--------------------------------------------------------------------
 
--record(session, {sid, pid}).
-
 -record(subscription, {topic, subid, subopts}).
 
 %% See 'Application Message' in MQTT Version 5.0
@@ -60,21 +62,22 @@
           %% Message from
           from :: atom() | binary(),
           %% Message flags
-          flags :: #{atom() => boolean()},
-          %% Message headers, or MQTT 5.0 Properties
-          headers = #{},
+          flags = #{} :: emqx_types:flags(),
+          %% Message headers. May contain any metadata. e.g. the
+          %% protocol version number, username, peerhost or
+          %% the PUBLISH properties (MQTT 5.0).
+          headers = #{} :: emqx_types:headers(),
           %% Topic that the message is published to
-          topic :: binary(),
+          topic :: emqx_types:topic(),
           %% Message Payload
-          payload :: binary(),
-          %% Timestamp
-          timestamp :: erlang:timestamp()
-        }).
+          payload :: emqx_types:payload(),
+          %% Timestamp (Unit: millisecond)
+          timestamp :: integer()
+         }).
 
 -record(delivery, {
           sender  :: pid(),      %% Sender of the delivery
-          message :: #message{}, %% The message delivered
-          results :: list()      %% Dispatches of the message
+          message :: #message{}  %% The message delivered
         }).
 
 %%--------------------------------------------------------------------
@@ -96,7 +99,7 @@
           node_id        :: trie_node_id(),
           edge_count = 0 :: non_neg_integer(),
           topic          :: binary() | undefined,
-          flags          :: list(atom())
+          flags          :: list(atom()) | undefined
         }).
 
 -record(trie_edge, {
@@ -118,7 +121,8 @@
           severity  :: notice | warning | error | critical,
           title     :: iolist(),
           summary   :: iolist(),
-          timestamp :: erlang:timestamp()
+          %% Timestamp (Unit: millisecond)
+          timestamp :: integer() | undefined
         }).
 
 %%--------------------------------------------------------------------
@@ -127,12 +131,12 @@
 
 -record(plugin, {
           name           :: atom(),
-          version        :: string(),
-          dir            :: string(),
+          dir            :: string() | undefined,
           descr          :: string(),
-          vendor         :: string(),
+          vendor         :: string() | undefined,
           active = false :: boolean(),
-          info           :: map()
+          info   = #{}   :: map(),
+          type           :: atom()
         }).
 
 %%--------------------------------------------------------------------
@@ -151,16 +155,21 @@
 %%--------------------------------------------------------------------
 %% Banned
 %%--------------------------------------------------------------------
--type(banned_who() ::  {client_id,  binary()}
-                     | {username,   binary()}
-                     | {ip_address, inet:ip_address()}).
 
 -record(banned, {
-          who    :: banned_who(),
-          reason :: binary(),
+          who    :: {clientid,  binary()}
+                  | {username,   binary()}
+                  | {ip_address, inet:ip_address()}
+                  | undefined,
           by     :: binary(),
-          desc   :: binary(),
+          reason :: undefined | binary(),
+          at     :: integer(),
           until  :: integer()
         }).
 
+-record(mqtt_admin, {username, password, tags}).
+
+-type(mqtt_admin() :: #mqtt_admin{}).
+
 -endif.
+

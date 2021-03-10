@@ -55,6 +55,7 @@
 -compile(nowarn_export_all).
 -endif.
 
+
 -define(PROCESS_LIST, [initial_call,
                        reductions,
                        memory,
@@ -213,7 +214,9 @@ convert_allocated_areas({Key, Value}) ->
 mem_info() ->
     Dataset = case os:type() of {unix, darwin} ->
         % quick stub for macos
+
         [ {total_memory, list_to_integer(hd(string:lexemes(os:cmd("sysctl -n hw.memsize"), [$\n,$\r]))) }
+
         , {free_memory, 0} % need free memory util with consistent results
         %, {system_total_memory,}
         %, {largest_free,}
@@ -248,6 +251,7 @@ get_memory()->
     [{Key, get_memory(Key)} || Key <- [used, allocated, unused, usage]] ++ erlang:memory().
 
 % very quick replacement of system_info() with instruments.
+
 % {driver_alloc,32768,0,3032,17,false,{1,0,0,0,1,0,0,0,0,0,0,0,0,0}
 get_memory(used) ->
     lists:foldl(fun({_Type,_InPool,_Total,_Unscanned,Alls,_Free}, AccIn0) ->
@@ -257,6 +261,7 @@ get_memory(used) ->
 get_memory(allocated) ->
     lists:foldl(fun({_Type,_InPool,Total,_Unscanned,_Alls,_Free}, AccIn0) -> AccIn0 + Total;
 		   ({_Type,Total,_Unscanned,_A,_C,_InPool,_Free}, AccIn0) -> AccIn0 + Total end,
+
         0, case instrument:carriers() of  {ok, {_S, C1}} -> C1; {error,_} -> [] end);
 get_memory(unused) -> get_memory(allocated) - get_memory(used);
 get_memory(usage) -> get_memory(used) / get_memory(allocated).

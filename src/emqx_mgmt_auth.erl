@@ -51,12 +51,16 @@
 %%--------------------------------------------------------------------
 
 mnesia(boot) ->
+    mnesia:start(),
+    mnesia:create_schema([node()]),
     ok = ekka_mnesia:create_table(mqtt_app, [
                 {disc_copies, [node()]},
                 {record_name, mqtt_app},
                 {attributes, record_info(fields, mqtt_app)}]);
 
 mnesia(copy) ->
+    mnesia:start(),
+    mnesia:create_schema([node()]),
     ok = ekka_mnesia:copy_table(mqtt_app, disc_copies).
 
 %%--------------------------------------------------------------------

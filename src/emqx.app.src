@@ -3,6 +3,6 @@
     {vsn,"git"},
     {modules,[]},
     {registered,[]},
-    {applications,[kernel,stdlib,jsone,gproc,gen_rpc,esockd,cowboy,replayq,ekka,ssl_verify_fun]},
+    {applications,[kernel,stdlib,jsone,mnesia,gproc,gen_rpc,esockd,cowboy,replayq,ekka,ssl_verify_fun]},
     {env,[]},
     {mod,{emqx_app,[]}} ]}.

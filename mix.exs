@@ -46,7 +46,7 @@ defmodule Emqx.MixProject do
     [
       {:gproc, github: "voxoz/gproc"},
       {:ekka, github: "rosemqx/ekka", ref: "v0.7"},
-      {:esockd, github: "rosemqs/esockd", ref: "v5.7.3"},
+      {:esockd, github: "rosemqx/esockd", ref: "v5.7.3"},
       {:gen_rpc, github: "rosemqx/gen_rpc"},
       {:replayq, github: "rosemqx/replayq"},
       {:minirest, github: "rosemqx/minirest", ref: "emqx42"},

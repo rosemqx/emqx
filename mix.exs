@@ -1,7 +1,7 @@
 defmodule Emqx.MixProject do
- use Mix.Project
+  use Mix.Project
 
- def project do
+  def project do
     [
       app: :emqx,
       version: "4.2.0",
@@ -12,9 +12,9 @@ defmodule Emqx.MixProject do
       elixirc_options: [warnings_as_errors: true],
       deps: deps()
     ]
- end
+  end
 
- def application do
+  def application do
     [
       mod: {Emqx.App, []},
       extra_applications: [:logger, :os_mon],
@@ -40,20 +40,20 @@ defmodule Emqx.MixProject do
         :minirest
       ]
     ]
- end
+  end
 
- def deps do
-  [
-    {:gproc,    github: "voxoz/gproc"},
-    {:ekka,     github: "xio/ekka", ref: "v0.7"},
-    {:esockd,   github: "emqx/esockd", ref: "v5.7.3"},
-    {:gen_rpc,  github: "xio/gen_rpc"},
-    {:replayq,  github: "xio/replayq"},
-    {:minirest, github: "xio/minirest", ref: "emqx42"},
-    {:jsone,    "~> 1.5.5", override: true},
-    {:cowlib,   "~> 2.9.1", override: true},
-    {:cowboy,   "~> 2.8.0", override: true},
-    {:ranch,    "~> 1.7.1", override: true}
-  ]
- end
+  def deps do
+    [
+      {:gproc, github: "voxoz/gproc"},
+      {:ekka, github: "rosemqx/ekka", ref: "v0.7"},
+      {:esockd, github: "rosemqx/esockd", ref: "v5.7.3"},
+      {:gen_rpc, github: "rosemqx/gen_rpc"},
+      {:replayq, github: "rosemqx/replayq"},
+      {:minirest, github: "rosemqx/minirest", ref: "emqx42"},
+      {:jsone, "~> 1.5.5", override: true},
+      {:cowlib, "~> 2.9.1", override: true},
+      {:cowboy, "~> 2.8.0", override: true},
+      {:ranch, "~> 1.7.1", override: true}
+    ]
+  end
 end

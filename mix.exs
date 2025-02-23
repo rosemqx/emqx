@@ -50,7 +50,7 @@ defmodule Emqx.MixProject do
       {:gen_rpc, github: "rosemqx/gen_rpc"},
       {:replayq, github: "rosemqx/replayq"},
       {:minirest, github: "rosemqx/minirest", ref: "emqx42"},
-      {:jsone, "~> 1.5.5", override: true},
+      {:jsone, "~> 1.5.3", override: true},
       {:cowlib, "~> 2.9.1", override: true},
       {:cowboy, "~> 2.8.0", override: true},
       {:ranch, "~> 1.7.1", override: true}

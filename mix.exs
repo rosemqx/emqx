@@ -49,7 +49,6 @@ defmodule Emqx.MixProject do
       {:esockd, github: "rosemqx/esockd", ref: "v5.7.3"},
       {:gen_rpc, github: "rosemqx/gen_rpc"},
       {:replayq, github: "rosemqx/replayq"},
-      {:minirest, github: "rosemqx/minirest", ref: "emqx42"},
       {:jsone, "~> 1.5.3", override: true},
       {:cowlib, "~> 2.9.1", override: true},
       {:cowboy, "~> 2.8.0", override: true},

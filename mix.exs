@@ -14,33 +14,33 @@ defmodule Emqx.MixProject do
     ]
   end
 
-  # def application do
-  #   [
-  #     mod: {Emqx.App, []},
-  #     extra_applications: [:logger, :os_mon],
-  #     applications: [
-  #       :kernel,
-  #       :stdlib,
-  #       :inets,
-  #       :mnesia,
-  #       :asn1,
-  #       :crypto,
-  #       :gproc,
-  #       :public_key,
-  #       :ssl,
-  #       :ranch,
-  #       :esockd,
-  #       :jsone,
-  #       :gen_rpc,
-  #       :ssl_verify_fun,
-  #       :cowlib,
-  #       :cowboy,
-  #       :replayq,
-  #       :ekka,
-  #       :minirest
-  #     ]
-  #   ]
-  # end
+  def application do
+    [
+      mod: {Emqx.App, []},
+      extra_applications: [:logger, :os_mon],
+      applications: [
+        :kernel,
+        :stdlib,
+        :inets,
+        :mnesia,
+        :asn1,
+        :crypto,
+        :gproc,
+        :public_key,
+        :ssl,
+        :ranch,
+        :esockd,
+        :jsone,
+        :gen_rpc,
+        :ssl_verify_fun,
+        :cowlib,
+        :cowboy,
+        :replayq,
+        :ekka,
+        :minirest
+      ]
+    ]
+  end
 
   def deps do
     [

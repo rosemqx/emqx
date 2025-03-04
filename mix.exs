@@ -45,7 +45,8 @@ defmodule Emqx.MixProject do
   def deps do
     [
       {:gproc, github: "rosemqx/gproc"},
-      {:ekka, github: "rosemqx/ekka", ref: "v0.7"},
+      #      {:ekka, github: "rosemqx/ekka", ref: "v0.7"},
+      {:ekka, github: "rosemqx/ekka", ref: "master"},
       {:esockd, github: "rosemqx/esockd", ref: "v5.7.3"},
       {:gen_rpc, github: "rosemqx/gen_rpc"},
       {:replayq, github: "rosemqx/replayq"},

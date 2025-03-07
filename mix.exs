@@ -17,36 +17,36 @@ defmodule Emqx.MixProject do
   def application do
     [
       mod: {Emqx.App, []},
-      extra_applications: [:logger, :os_mon],
-      applications: [
-        :kernel,
-        :stdlib,
-        :inets,
-        :mnesia,
-        :asn1,
-        :crypto,
-        :gproc,
-        :public_key,
-        :ssl,
-        :ranch,
-        :esockd,
-        :jsone,
-        :gen_rpc,
-        :ssl_verify_fun,
-        :cowlib,
-        :cowboy,
-        :replayq,
-        :ekka,
-        :minirest
-      ]
+      extra_applications: [:logger, :os_mon]
+      # applications: [
+      #   :kernel,
+      #   :stdlib,
+      #   :inets,
+      #   :mnesia,
+      #   :asn1,
+      #   :crypto,
+      #   :gproc,
+      #   :public_key,
+      #   :ssl,
+      #   :ranch,
+      #   :esockd,
+      #   :jsone,
+      #   :gen_rpc,
+      #   :ssl_verify_fun,
+      #   :cowlib,
+      #   :cowboy,
+      #   :replayq,
+      #   :ekka,
+      #   :minirest
+      # ]
     ]
   end
 
   def deps do
     [
       {:gproc, github: "rosemqx/gproc"},
-      #      {:ekka, github: "rosemqx/ekka", ref: "v0.7"},
-      {:ekka, github: "rosemqx/ekka", ref: "master"},
+      {:ekka, github: "rosemqx/ekka", ref: "v0.7"},
+      # {:ekka, github: "rosemqx/ekka", ref: "master"},
       {:esockd, github: "rosemqx/esockd", ref: "v5.7.3"},
       {:gen_rpc, github: "rosemqx/gen_rpc"},
       {:replayq, github: "rosemqx/replayq"},
